@@ -37,6 +37,8 @@
     border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;user-select:none}
   .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .chip.stk.on{background:#3A85C8;border-color:#3A85C8}
+  .chip.allbtn{border-style:dashed;color:var(--txt)}
+  .fsum{font:600 13px/1.4 var(--mono);color:var(--txt)}
   /* DRILL */
   .drill{display:grid;grid-template-columns:1fr;gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px}
@@ -132,11 +134,14 @@
       <div class="row">
         <span class="flabel">Tables</span>
         <span id="grpChips"></span>
+        <span class="chip allbtn" onclick="allFilter('groups')">Tout</span>
       </div>
       <div class="row">
         <span class="flabel">Stacks</span>
         <span id="stkChips"></span>
+        <span class="chip allbtn" onclick="allFilter('stacks')">Tout</span>
       </div>
+      <div class="row"><span class="flabel">Révisé</span><span id="filterSummary" class="fsum"></span></div>
     </div>
     <div class="drill">
       <div class="card" id="drillCard">
@@ -316,6 +321,18 @@ function buildFilters(){
     c.textContent=st; c.onclick=()=>{ toggle(STATE.filter.stacks,st); if(!STATE.filter.stacks.length) STATE.filter.stacks.push(st); buildFilters(); save(); nextSpot(); refreshStats(); };
     s.appendChild(c);
   });
+  renderFilterSummary();
+}
+function renderFilterSummary(){
+  const el=document.getElementById('filterSummary'); if(!el) return;
+  const ens=enabledRanges();
+  if(!ens.length){ el.innerHTML='<span style="color:var(--bad)">aucune range — cette combinaison n\'existe pas</span>'; return; }
+  if(ens.length<=4){ el.textContent = ens.map(r=>`${r.group} ${r.stack}`).join(' · '); }
+  else { el.textContent = `${ens.length} ranges`; }
+}
+function allFilter(which){
+  STATE.filter[which] = which==='groups' ? [...GROUPS] : [...STACKS];
+  buildFilters(); save(); nextSpot(); refreshStats();
 }
 function toggle(arr,v){ const i=arr.indexOf(v); if(i<0)arr.push(v); else arr.splice(i,1); }
 
@@ -343,7 +360,7 @@ function nextSpot(){
   const box=document.getElementById('answers'), fb=document.getElementById('fb'), mini=document.getElementById('mini');
   fb.innerHTML=''; mini.textContent='';
   if(!current){ document.getElementById('situ').innerHTML=''; document.getElementById('hand').textContent='';
-    document.getElementById('hdesc').textContent=''; box.innerHTML='<div class="empty">Sélectionne au moins une table et un stack.</div>'; return; }
+    document.getElementById('hdesc').textContent=''; box.innerHTML='<div class="empty">Aucune range ne combine ces tables et ces stacks — élargis la sélection (bouton « Tout »).</div>'; return; }
   const r=current.range, h=current.hand, f=fmtHand(h);
   document.getElementById('situ').innerHTML =
     `<span class="pos">${r.group}</span><span class="stk">${r.stack}</span><span>${r.subtitle}</span><span class="badge">${r.badge}</span>`;
