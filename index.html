@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trainer Ranges Expresso — Kill Tilt</title>
+<style>
+  :root{
+    --bg:#14171C; --panel:#1B1F26; --panel2:#232830; --border:#2C323C;
+    --txt:#E9ECF1; --muted:#8B94A2; --accent:#E23B3B; --good:#2E9E5B; --bad:#D92B2B;
+    --mono:ui-monospace,"SF Mono","DM Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 60px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .logo{font-weight:800;letter-spacing:.5px;font-size:18px}
+  .logo b{color:var(--accent)}
+  .tag{font:600 10px/1 var(--mono);letter-spacing:1px;color:var(--accent);
+    border:1px solid var(--accent);border-radius:5px;padding:5px 7px}
+  .spacer{flex:1}
+  .stat{display:flex;gap:16px;flex-wrap:wrap}
+  .stat div{text-align:right}
+  .stat .n{font:700 18px/1 var(--mono)}
+  .stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  nav.tabs{display:flex;gap:6px;margin:8px 0 16px;border-bottom:1px solid var(--border)}
+  nav.tabs button{background:none;border:none;color:var(--muted);font-size:14px;font-weight:600;
+    padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  nav.tabs button.on{color:var(--txt);border-bottom-color:var(--accent)}
+  .filters{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+  .filters .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .filters .row + .row{margin-top:10px}
+  .flabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;width:64px;flex:none}
+  .chip{background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;user-select:none}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.stk.on{background:#3A85C8;border-color:#3A85C8}
+  /* DRILL */
+  .drill{display:grid;grid-template-columns:1fr;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px}
+  .situ{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:14px}
+  .situ .pos{color:var(--txt);font-weight:800;font-size:17px;letter-spacing:.3px}
+  .situ .stk{font:700 14px/1 var(--mono);color:#3A85C8}
+  .situ .badge{font:600 9px/1 var(--mono);letter-spacing:1px;border:1px solid var(--border);border-radius:4px;padding:4px 6px;color:var(--muted)}
+  .hero{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 0 20px}
+  .hand{font:800 64px/1 var(--mono);letter-spacing:2px}
+  .hand .suit{font-size:44px;opacity:.9}
+  .hdesc{margin-top:10px;color:var(--muted);font-size:14px}
+  .answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px}
+  .ans{position:relative;border:1.5px solid var(--border);background:var(--panel2);color:var(--txt);
+    border-radius:12px;padding:14px 12px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;
+    display:flex;align-items:center;gap:10px;transition:transform .05s}
+  .ans:hover{border-color:#3d4552}
+  .ans:active{transform:scale(.99)}
+  .ans .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .ans .k{position:absolute;right:10px;top:8px;font:600 10px/1 var(--mono);color:var(--muted)}
+  .ans.correct{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
+  .ans.wrong{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset;opacity:.75}
+  .ans:disabled{cursor:default}
+  .fb{margin-top:16px;min-height:24px;font-size:15px;display:flex;align-items:center;gap:10px}
+  .fb .ok{color:var(--good);font-weight:700}
+  .fb .no{color:var(--bad);font-weight:700}
+  .next{margin-left:auto;background:var(--accent);border:none;color:#fff;font-weight:700;
+    border-radius:10px;padding:10px 18px;cursor:pointer;font-size:14px}
+  .next.hidden{display:none}
+  .mini{margin-top:4px;font-size:12px;color:var(--muted)}
+  /* GRIDS */
+  .gridpick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .gridwrap{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  table.rng{border-collapse:separate;border-spacing:2px}
+  table.rng td{width:100%;text-align:center;font:600 10px/1 var(--mono);color:#fff;
+    border-radius:4px;padding:0;height:30px;min-width:30px;position:relative}
+  @media(max-width:560px){table.rng td{height:23px;min-width:23px;font-size:8px}.hand{font-size:48px}}
+  .legend{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;min-width:220px}
+  .legend h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  .legend .li{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+  .legend .sw{width:16px;height:16px;border-radius:4px;flex:none}
+  .ghead{font-weight:800;font-size:18px;margin:0 0 2px}
+  .gsub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--txt);border-radius:9px;
+    padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn:hover{border-color:#3d4552}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .note{font-size:12px;color:var(--muted);line-height:1.5}
+  .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:11px}
+  .foot a{color:var(--accent);text-decoration:none}
+  .empty{color:var(--muted);text-align:center;padding:40px}
+  /* BLIND */
+  .bpick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .bhead{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .bscore{margin-left:auto;text-align:right}
+  .bscore .n{font:800 26px/1 var(--mono)}
+  .bscore .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .binstr{font-size:13px;color:var(--muted);margin:8px 0 12px}
+  .palette{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pal{display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);background:var(--panel2);
+    color:var(--txt);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;user-select:none}
+  .pal .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .pal.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  table.rng td.bcell{cursor:pointer;user-select:none}
+  table.rng td.miss{outline:2px solid #fff;outline-offset:-2px}
+  table.rng td.miss::after{content:"✗";position:absolute;top:0;right:2px;font-size:9px;color:#fff;text-shadow:0 0 2px #000}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo">KILL <b>TILT</b></span>
+    <span class="tag">TRAINER · RANGES EXPRESSO</span>
+    <span class="spacer"></span>
+    <div class="stat">
+      <div><div class="n" id="sAcc">–</div><div class="l">Précision</div></div>
+      <div><div class="n" id="sStreak">0</div><div class="l">Série</div></div>
+      <div><div class="n" id="sMast">0</div><div class="l">Maîtrisées</div></div>
+      <div><div class="n" id="sSeen">0</div><div class="l">Réps</div></div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button id="tabDrill" class="on" onclick="setTab('drill')">S'entraîner</button>
+    <button id="tabGrid" onclick="setTab('grid')">Grilles</button>
+    <button id="tabBlind" onclick="setTab('blind')">Grille aveugle</button>
+    <button id="tabExport" onclick="setTab('export')">Export Anki</button>
+  </nav>
+
+  <!-- DRILL -->
+  <section id="viewDrill">
+    <div class="filters">
+      <div class="row">
+        <span class="flabel">Tables</span>
+        <span id="grpChips"></span>
+      </div>
+      <div class="row">
+        <span class="flabel">Stacks</span>
+        <span id="stkChips"></span>
+      </div>
+    </div>
+    <div class="drill">
+      <div class="card" id="drillCard">
+        <div class="situ" id="situ"></div>
+        <div class="hero">
+          <div class="hand" id="hand"></div>
+          <div class="hdesc" id="hdesc"></div>
+        </div>
+        <div class="answers" id="answers"></div>
+        <div class="fb" id="fb"></div>
+        <div class="mini" id="mini"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GRIDS -->
+  <section id="viewGrid" style="display:none">
+    <div class="gridpick" id="gridPick"></div>
+    <div class="gridwrap">
+      <div>
+        <div class="ghead" id="gHead"></div>
+        <div class="gsub" id="gSub"></div>
+        <div id="gTable"></div>
+      </div>
+      <div class="legend" id="gLegend"></div>
+    </div>
+  </section>
+
+  <!-- BLIND -->
+  <section id="viewBlind" style="display:none">
+    <div class="bpick" id="bPick"></div>
+    <div class="bhead">
+      <div>
+        <div class="ghead" id="bHead"></div>
+        <div class="gsub" id="bSub"></div>
+      </div>
+      <div class="bscore" id="bScore"></div>
+    </div>
+    <div class="binstr" id="bInstr"></div>
+    <div class="palette" id="bPalette"></div>
+    <div class="gridwrap">
+      <div id="bTableWrap"></div>
+      <div style="min-width:200px">
+        <div class="toolbar">
+          <button class="btn primary" id="bCheckBtn" onclick="blindCheck()">Vérifier</button>
+          <button class="btn" onclick="blindReset()">Effacer</button>
+          <button class="btn" onclick="blindRandom()">Autre range</button>
+        </div>
+        <div class="note" id="bErrors"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXPORT -->
+  <section id="viewExport" style="display:none">
+    <div class="card">
+      <h3 style="margin-top:0">Exporter vers Anki</h3>
+      <p class="note">Ce deck contient <b>18 cartes « grille entière »</b> : recto = la situation (position + stack), verso = la grille couleur complète. C'est la meilleure façon d'ancrer les ranges dans Anki — tu reconstruis la grille de tête, tu retournes, tu vérifies. Le drill de ce trainer s'occupe déjà du travail main par main.</p>
+      <ol class="note">
+        <li>Clique sur <b>Télécharger le deck (.txt)</b> ci-dessous.</li>
+        <li>Dans Anki : <b>Fichier → Importer</b>, sélectionne le fichier.</li>
+        <li>Type de note : <b>Basique</b> · Séparateur : <b>Tabulation</b> · coche <b>« Autoriser le HTML dans les champs »</b>.</li>
+        <li>Champ 1 → Recto, Champ 2 → Verso. Importe.</li>
+      </ol>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn primary" onclick="exportAnki()">Télécharger le deck (.txt)</button>
+        <button class="btn" onclick="exportJSON()">Exporter les ranges (.json)</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-top:0">Ma progression</h3>
+      <p class="note" id="progStatus"></p>
+      <p class="note"><b>Exporter</b> télécharge un fichier <b>.json</b> avec tes niveaux par main et tes stats. <b>Importer</b> recharge ce fichier (il se fusionne avec ta progression actuelle) — pratique pour passer du PC au téléphone. <b>Réinitialiser</b> efface tout et repart de zéro.</p>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn primary" onclick="exportProgress()">Exporter ma progression (.json)</button>
+        <button class="btn" onclick="document.getElementById('progFile').click()">Importer un .json</button>
+        <input id="progFile" type="file" accept="application/json,.json" style="display:none" onchange="importProgress(this.files[0]); this.value='';">
+        <button class="btn" onclick="resetProgress()" style="border-color:#7a2b2b;color:#e58">Réinitialiser</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">Ranges d'après le guide <b>Kill Tilt — Ranges Expresso</b> · <a href="https://kill-tilt.fr" target="_blank" rel="noopener">kill-tilt.fr</a> · Trainer généré pour usage personnel</div>
+</div>
+
+<script>
+const DATA = {"ranks": ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"], "ranges": [{"id": "BTN|25bb", "group": "BTN", "stack": "25bb", "title": "BTN", "subtitle": "Open raise", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Minraise / Call", "color": "#2E9E5B"}, {"label": "Minraise / Fold", "color": "#D92B2B"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Minraise / Call", "ATs": "Minraise / Call", "A9s": "Minraise / Call", "A8s": "Minraise / Fold", "A7s": "Minraise / Fold", "A6s": "Minraise / Fold", "A5s": "Minraise / Fold", "A4s": "Minraise / Fold", "A3s": "Minraise / Fold", "A2s": "Minraise / Fold", "AKo": "Minraise / Call", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Fold", "KTs": "Minraise / Fold", "K9s": "Minraise / Fold", "K8s": "Minraise / Fold", "K7s": "Minraise / Fold", "K6s": "Minraise / Fold", "K5s": "Minraise / Fold", "K4s": "Minraise / Fold", "AQo": "Minraise / Call", "KQo": "Minraise / Fold", "QQ": "Minraise / Call", "QJs": "Minraise / Fold", "QTs": "Minraise / Fold", "Q9s": "Minraise / Fold", "Q8s": "Minraise / Fold", "Q7s": "Minraise / Fold", "Q6s": "Minraise / Fold", "Q5s": "Minraise / Fold", "AJo": "Minraise / Call", "KJo": "Minraise / Fold", "QJo": "Minraise / Fold", "JJ": "Minraise / Call", "JTs": "Minraise / Fold", "J9s": "Minraise / Fold", "J8s": "Minraise / Fold", "J7s": "Minraise / Fold", "J6s": "Minraise / Fold", "ATo": "Minraise / Call", "KTo": "Minraise / Fold", "QTo": "Minraise / Fold", "JTo": "Minraise / Fold", "TT": "Minraise / Call", "T9s": "Minraise / Fold", "T8s": "Minraise / Fold", "T7s": "Minraise / Fold", "T6s": "Minraise / Fold", "A9o": "Minraise / Fold", "K9o": "Minraise / Fold", "Q9o": "Minraise / Fold", "J9o": "Minraise / Fold", "T9o": "Minraise / Fold", "99": "Minraise / Call", "98s": "Minraise / Fold", "97s": "Minraise / Fold", "96s": "Minraise / Fold", "A8o": "Minraise / Fold", "88": "Minraise / Call", "87s": "Minraise / Fold", "86s": "Minraise / Fold", "A7o": "Minraise / Fold", "77": "Minraise / Call", "76s": "Minraise / Fold", "75s": "Minraise / Fold", "A6o": "Minraise / Fold", "66": "Minraise / Call", "65s": "Minraise / Fold", "A5o": "Minraise / Fold", "55": "Minraise / Call", "A4o": "Minraise / Fold", "44": "Minraise / Fold", "33": "Minraise / Fold", "22": "Minraise / Fold"}}, {"id": "BTN|15bb", "group": "BTN", "stack": "15bb", "title": "BTN", "subtitle": "Open raise", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Minraise / Call", "color": "#2E9E5B"}, {"label": "Minraise / Fold", "color": "#D92B2B"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Minraise / Call", "ATs": "Minraise / Call", "A9s": "Minraise / Call", "A8s": "Minraise / Call", "A7s": "Minraise / Call", "A6s": "Open shove", "A5s": "Open shove", "A4s": "Open shove", "A3s": "Open shove", "A2s": "Open shove", "AKo": "Minraise / Call", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Call", "KTs": "Minraise / Call", "K9s": "Minraise / Fold", "K8s": "Minraise / Fold", "K7s": "Minraise / Fold", "K6s": "Minraise / Fold", "K5s": "Minraise / Fold", "AQo": "Minraise / Call", "KQo": "Open shove", "QQ": "Minraise / Call", "QJs": "Open shove", "QTs": "Open shove", "Q9s": "Minraise / Fold", "Q8s": "Minraise / Fold", "Q7s": "Minraise / Fold", "AJo": "Minraise / Call", "KJo": "Open shove", "QJo": "Minraise / Fold", "JJ": "Minraise / Call", "JTs": "Open shove", "J9s": "Open shove", "J8s": "Minraise / Fold", "J7s": "Minraise / Fold", "ATo": "Open shove", "KTo": "Minraise / Fold", "QTo": "Minraise / Fold", "JTo": "Minraise / Fold", "TT": "Minraise / Call", "T9s": "Open shove", "T8s": "Minraise / Fold", "T7s": "Minraise / Fold", "A9o": "Open shove", "K9o": "Minraise / Fold", "99": "Minraise / Call", "98s": "Minraise / Fold", "97s": "Minraise / Fold", "A8o": "Open shove", "88": "Minraise / Call", "87s": "Minraise / Fold", "86s": "Minraise / Fold", "A7o": "Minraise / Fold", "77": "Minraise / Call", "A6o": "Minraise / Fold", "66": "Open shove", "A5o": "Minraise / Fold", "55": "Open shove", "A4o": "Minraise / Fold", "44": "Open shove", "33": "Open shove", "22": "Open shove"}}, {"id": "BTN|10bb", "group": "BTN", "stack": "10bb", "title": "BTN", "subtitle": "Open raise", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Minraise / Call", "color": "#2E9E5B"}, {"label": "Minraise / Fold", "color": "#D92B2B"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Minraise / Call", "ATs": "Open shove", "A9s": "Open shove", "A8s": "Open shove", "A7s": "Open shove", "A6s": "Open shove", "A5s": "Open shove", "A4s": "Open shove", "A3s": "Open shove", "A2s": "Open shove", "AKo": "Open shove", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Call", "KTs": "Minraise / Call", "K9s": "Open shove", "K8s": "Open shove", "K7s": "Open shove", "K6s": "Open shove", "K5s": "Minraise / Fold", "K4s": "Minraise / Fold", "AQo": "Open shove", "KQo": "Open shove", "QQ": "Minraise / Call", "QJs": "Minraise / Call", "QTs": "Minraise / Call", "Q9s": "Open shove", "Q8s": "Minraise / Fold", "Q7s": "Minraise / Fold", "AJo": "Open shove", "KJo": "Open shove", "QJo": "Open shove", "JJ": "Minraise / Call", "JTs": "Minraise / Call", "J9s": "Open shove", "J8s": "Open shove", "J7s": "Minraise / Fold", "ATo": "Open shove", "KTo": "Open shove", "QTo": "Open shove", "JTo": "Open shove", "TT": "Open shove", "T9s": "Open shove", "T8s": "Open shove", "A9o": "Open shove", "K9o": "Minraise / Fold", "99": "Open shove", "98s": "Open shove", "97s": "Open shove", "A8o": "Open shove", "88": "Open shove", "87s": "Open shove", "A7o": "Open shove", "77": "Open shove", "76s": "Open shove", "A6o": "Open shove", "66": "Open shove", "A5o": "Open shove", "55": "Open shove", "A4o": "Open shove", "44": "Open shove", "A3o": "Open shove", "33": "Open shove", "A2o": "Open shove", "22": "Open shove"}}, {"id": "SB vs BTN|25bb", "group": "SB vs BTN", "stack": "25bb", "title": "SB vs BTN", "subtitle": "vs minraise", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3bet All-in", "color": "#5A4FA0"}, {"label": "3bet Non all in / call", "color": "#E07820"}, {"label": "3bet non all in / Fold", "color": "#B8900A"}, {"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "3bet Non all in / call", "AKs": "3bet All-in", "AQs": "3bet All-in", "AJs": "3bet All-in", "ATs": "3bet All-in", "A9s": "3bet All-in", "A8s": "3bet All-in", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "3bet All-in", "KK": "3bet Non all in / call", "KQs": "3bet All-in", "KJs": "3bet All-in", "KTs": "Call", "K9s": "Call", "AQo": "3bet All-in", "KQo": "3bet All-in", "QQ": "3bet Non all in / call", "QJs": "3bet All-in", "QTs": "Call", "Q9s": "Call", "AJo": "3bet All-in", "KJo": "3bet non all in / Fold", "QJo": "3bet non all in / Fold", "JJ": "3bet Non all in / call", "JTs": "Call", "J9s": "Call", "ATo": "3bet All-in", "TT": "3bet All-in", "T9s": "Call", "99": "3bet All-in", "88": "3bet All-in", "77": "3bet All-in", "66": "3bet All-in", "55": "3bet All-in", "44": "3bet All-in", "33": "3bet All-in", "22": "3bet All-in"}}, {"id": "SB vs BTN|15bb", "group": "SB vs BTN", "stack": "15bb", "title": "SB vs BTN", "subtitle": "vs minraise", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3bet All-in", "color": "#5A4FA0"}, {"label": "3bet Non all in / call", "color": "#E07820"}], "cells": {"AA": "3bet Non all in / call", "AKs": "3bet All-in", "AQs": "3bet All-in", "AJs": "3bet All-in", "ATs": "3bet All-in", "A9s": "3bet All-in", "A8s": "3bet All-in", "A7s": "3bet All-in", "A6s": "3bet All-in", "A5s": "3bet All-in", "A4s": "3bet All-in", "A3s": "3bet All-in", "A2s": "3bet All-in", "AKo": "3bet All-in", "KK": "3bet Non all in / call", "KQs": "3bet All-in", "KJs": "3bet All-in", "KTs": "3bet All-in", "K9s": "3bet All-in", "AQo": "3bet All-in", "KQo": "3bet All-in", "QQ": "3bet Non all in / call", "QJs": "3bet All-in", "QTs": "3bet All-in", "Q9s": "3bet All-in", "AJo": "3bet All-in", "KJo": "3bet All-in", "JJ": "3bet All-in", "JTs": "3bet All-in", "J9s": "3bet All-in", "ATo": "3bet All-in", "TT": "3bet All-in", "T9s": "3bet All-in", "A9o": "3bet All-in", "99": "3bet All-in", "88": "3bet All-in", "77": "3bet All-in", "66": "3bet All-in", "55": "3bet All-in", "44": "3bet All-in", "33": "3bet All-in", "22": "3bet All-in"}}, {"id": "SB vs BTN|10bb", "group": "SB vs BTN", "stack": "10bb", "title": "SB vs BTN", "subtitle": "vs open shove", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "Call", "AKs": "Call", "AQs": "Call", "AJs": "Call", "ATs": "Call", "A9s": "Call", "A8s": "Call", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "Call", "KK": "Call", "KQs": "Call", "KJs": "Call", "KTs": "Call", "AQo": "Call", "KQo": "Call", "QQ": "Call", "QJs": "Call", "QTs": "Call", "AJo": "Call", "KJo": "Call", "JJ": "Call", "ATo": "Call", "TT": "Call", "A9o": "Call", "99": "Call", "A8o": "Call", "88": "Call", "A7o": "Call", "77": "Call", "66": "Call", "55": "Call", "44": "Call", "33": "Call"}}, {"id": "SB vs BB|25bb", "group": "SB vs BB", "stack": "25bb", "title": "SB vs BB", "subtitle": "Open SB", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3x / Call", "color": "#2E9E5B"}, {"label": "3x / Fold", "color": "#9B6BBF"}, {"label": "Limp / Fold", "color": "#B8900A"}, {"label": "Limp / Reraise", "color": "#8B2020"}, {"label": "Limp/call vs 3bet, fold sinon", "color": "#D46A3A"}], "cells": {"AA": "3x / Call", "AKs": "3x / Call", "AQs": "3x / Call", "AJs": "3x / Call", "ATs": "3x / Call", "A9s": "3x / Fold", "A8s": "3x / Fold", "A7s": "Limp/call vs 3bet, fold sinon", "A6s": "Limp/call vs 3bet, fold sinon", "A5s": "Limp/call vs 3bet, fold sinon", "A4s": "Limp/call vs 3bet, fold sinon", "A3s": "Limp/call vs 3bet, fold sinon", "A2s": "Limp/call vs 3bet, fold sinon", "AKo": "3x / Call", "KK": "3x / Call", "KQs": "3x / Call", "KJs": "3x / Call", "KTs": "3x / Fold", "K9s": "3x / Fold", "K8s": "3x / Fold", "K7s": "Limp/call vs 3bet, fold sinon", "K6s": "Limp/call vs 3bet, fold sinon", "K5s": "Limp/call vs 3bet, fold sinon", "K4s": "Limp/call vs 3bet, fold sinon", "K3s": "Limp/call vs 3bet, fold sinon", "K2s": "Limp/call vs 3bet, fold sinon", "AQo": "3x / Call", "KQo": "3x / Fold", "QQ": "3x / Call", "QJs": "3x / Fold", "QTs": "3x / Fold", "Q9s": "3x / Fold", "Q8s": "3x / Fold", "Q7s": "Limp/call vs 3bet, fold sinon", "Q6s": "Limp/call vs 3bet, fold sinon", "Q5s": "Limp/call vs 3bet, fold sinon", "Q4s": "Limp/call vs 3bet, fold sinon", "Q3s": "Limp/call vs 3bet, fold sinon", "Q2s": "Limp/call vs 3bet, fold sinon", "AJo": "3x / Call", "KJo": "3x / Fold", "QJo": "3x / Fold", "JJ": "3x / Call", "JTs": "3x / Fold", "J9s": "3x / Fold", "J8s": "3x / Fold", "J7s": "Limp/call vs 3bet, fold sinon", "J6s": "Limp/call vs 3bet, fold sinon", "J5s": "Limp/call vs 3bet, fold sinon", "J4s": "Limp/call vs 3bet, fold sinon", "J3s": "Limp/call vs 3bet, fold sinon", "J2s": "Limp/call vs 3bet, fold sinon", "ATo": "3x / Call", "KTo": "3x / Fold", "QTo": "3x / Fold", "JTo": "3x / Fold", "TT": "3x / Call", "T9s": "3x / Fold", "T8s": "3x / Fold", "T7s": "Limp/call vs 3bet, fold sinon", "T6s": "Limp/call vs 3bet, fold sinon", "T5s": "Limp/call vs 3bet, fold sinon", "T4s": "Limp / Fold", "T3s": "Limp / Fold", "T2s": "Limp / Fold", "A9o": "Limp / Reraise", "K9o": "3x / Fold", "Q9o": "3x / Fold", "J9o": "3x / Fold", "T9o": "3x / Fold", "99": "3x / Call", "98s": "3x / Fold", "97s": "Limp/call vs 3bet, fold sinon", "96s": "Limp/call vs 3bet, fold sinon", "95s": "Limp/call vs 3bet, fold sinon", "94s": "Limp / Fold", "93s": "Limp / Fold", "92s": "Limp / Fold", "A8o": "Limp / Reraise", "K8o": "3x / Fold", "Q8o": "3x / Fold", "J8o": "3x / Fold", "T8o": "3x / Fold", "98o": "3x / Fold", "88": "3x / Call", "87s": "3x / Fold", "86s": "Limp/call vs 3bet, fold sinon", "85s": "Limp/call vs 3bet, fold sinon", "A7o": "Limp/call vs 3bet, fold sinon", "K7o": "3x / Fold", "Q7o": "3x / Fold", "J7o": "Limp / Fold", "T7o": "Limp / Fold", "97o": "Limp / Fold", "87o": "Limp / Fold", "77": "3x / Call", "76s": "3x / Fold", "75s": "Limp/call vs 3bet, fold sinon", "74s": "Limp/call vs 3bet, fold sinon", "A6o": "Limp/call vs 3bet, fold sinon", "K6o": "Limp / Fold", "Q6o": "Limp / Fold", "96o": "Limp / Fold", "86o": "Limp / Fold", "76o": "Limp / Fold", "66": "Limp / Reraise", "65s": "3x / Fold", "64s": "Limp/call vs 3bet, fold sinon", "A5o": "Limp/call vs 3bet, fold sinon", "K5o": "Limp / Fold", "Q5o": "Limp / Fold", "55": "Limp / Reraise", "54s": "Limp/call vs 3bet, fold sinon", "53s": "Limp/call vs 3bet, fold sinon", "A4o": "Limp/call vs 3bet, fold sinon", "K4o": "Limp / Fold", "44": "Limp / Reraise", "43s": "Limp / Fold", "A3o": "Limp/call vs 3bet, fold sinon", "33": "Limp / Reraise", "A2o": "Limp/call vs 3bet, fold sinon", "22": "Limp / Reraise"}}, {"id": "SB vs BB|15bb", "group": "SB vs BB", "stack": "15bb", "title": "SB vs BB", "subtitle": "Open SB", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Limp / Reraise", "color": "#8B2020"}, {"label": "Limp/call vs 3bet, fold sinon", "color": "#D46A3A"}, {"label": "Minraise / Call", "color": "#C0556A"}, {"label": "Minraise / Fold", "color": "#9B6BBF"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Minraise / Call", "ATs": "Minraise / Call", "A9s": "Minraise / Call", "A8s": "Minraise / Call", "A7s": "Minraise / Call", "A6s": "Limp / Reraise", "A5s": "Limp / Reraise", "A4s": "Limp / Reraise", "A3s": "Open shove", "A2s": "Open shove", "AKo": "Open shove", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Call", "KTs": "Minraise / Call", "K9s": "Minraise / Call", "K8s": "Limp/call vs 3bet, fold sinon", "K7s": "Limp/call vs 3bet, fold sinon", "K6s": "Limp/call vs 3bet, fold sinon", "K5s": "Limp/call vs 3bet, fold sinon", "K4s": "Limp/call vs 3bet, fold sinon", "K3s": "Limp/call vs 3bet, fold sinon", "K2s": "Limp/call vs 3bet, fold sinon", "AQo": "Open shove", "KQo": "Minraise / Call", "QQ": "Minraise / Call", "QJs": "Minraise / Call", "QTs": "Minraise / Call", "Q9s": "Limp/call vs 3bet, fold sinon", "Q8s": "Limp/call vs 3bet, fold sinon", "Q7s": "Limp/call vs 3bet, fold sinon", "Q6s": "Limp/call vs 3bet, fold sinon", "Q5s": "Limp/call vs 3bet, fold sinon", "Q4s": "Limp/call vs 3bet, fold sinon", "Q3s": "Minraise / Fold", "Q2s": "Minraise / Fold", "AJo": "Open shove", "KJo": "Minraise / Call", "QJo": "Open shove", "JJ": "Minraise / Call", "JTs": "Minraise / Call", "J9s": "Limp/call vs 3bet, fold sinon", "J8s": "Limp/call vs 3bet, fold sinon", "J7s": "Limp/call vs 3bet, fold sinon", "J6s": "Limp/call vs 3bet, fold sinon", "J5s": "Limp/call vs 3bet, fold sinon", "J4s": "Limp/call vs 3bet, fold sinon", "J3s": "Minraise / Fold", "J2s": "Minraise / Fold", "ATo": "Open shove", "KTo": "Open shove", "QTo": "Limp/call vs 3bet, fold sinon", "JTo": "Open shove", "TT": "Minraise / Call", "T9s": "Minraise / Call", "T8s": "Open shove", "T7s": "Open shove", "T6s": "Limp/call vs 3bet, fold sinon", "T5s": "Minraise / Fold", "T4s": "Minraise / Fold", "T3s": "Minraise / Fold", "T2s": "Minraise / Fold", "A9o": "Open shove", "K9o": "Limp/call vs 3bet, fold sinon", "Q9o": "Limp/call vs 3bet, fold sinon", "J9o": "Limp/call vs 3bet, fold sinon", "T9o": "Open shove", "99": "Minraise / Call", "98s": "Open shove", "97s": "Open shove", "96s": "Open shove", "95s": "Minraise / Fold", "94s": "Minraise / Fold", "A8o": "Open shove", "K8o": "Limp/call vs 3bet, fold sinon", "Q8o": "Limp/call vs 3bet, fold sinon", "J8o": "Limp/call vs 3bet, fold sinon", "T8o": "Limp/call vs 3bet, fold sinon", "98o": "Open shove", "88": "Minraise / Call", "87s": "Open shove", "86s": "Open shove", "85s": "Minraise / Fold", "A7o": "Open shove", "K7o": "Limp/call vs 3bet, fold sinon", "Q7o": "Minraise / Fold", "J7o": "Minraise / Fold", "T7o": "Minraise / Fold", "97o": "Minraise / Fold", "87o": "Open shove", "77": "Minraise / Call", "76s": "Open shove", "75s": "Limp/call vs 3bet, fold sinon", "74s": "Minraise / Fold", "A6o": "Open shove", "K6o": "Minraise / Fold", "Q6o": "Minraise / Fold", "66": "Open shove", "65s": "Open shove", "64s": "Minraise / Fold", "A5o": "Open shove", "K5o": "Minraise / Fold", "55": "Open shove", "54s": "Limp/call vs 3bet, fold sinon", "53s": "Minraise / Fold", "A4o": "Open shove", "K4o": "Minraise / Fold", "44": "Open shove", "43s": "Minraise / Fold", "A3o": "Open shove", "33": "Open shove", "A2o": "Open shove", "22": "Open shove"}}, {"id": "SB vs BB|10bb", "group": "SB vs BB", "stack": "10bb", "title": "SB vs BB", "subtitle": "Open SB", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Minraise / Call", "color": "#2E9E5B"}, {"label": "Minraise / Fold", "color": "#9B6BBF"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Open shove", "ATs": "Open shove", "A9s": "Open shove", "A8s": "Open shove", "A7s": "Open shove", "A6s": "Open shove", "A5s": "Open shove", "A4s": "Open shove", "A3s": "Open shove", "A2s": "Open shove", "AKo": "Open shove", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Call", "KTs": "Minraise / Call", "K9s": "Open shove", "K8s": "Open shove", "K7s": "Open shove", "K6s": "Open shove", "K5s": "Open shove", "K4s": "Open shove", "K3s": "Open shove", "K2s": "Open shove", "AQo": "Open shove", "KQo": "Open shove", "QQ": "Minraise / Call", "QJs": "Minraise / Call", "QTs": "Minraise / Call", "Q9s": "Open shove", "Q8s": "Open shove", "Q7s": "Open shove", "Q6s": "Open shove", "Q5s": "Open shove", "Q4s": "Open shove", "Q3s": "Open shove", "Q2s": "Open shove", "AJo": "Open shove", "KJo": "Open shove", "QJo": "Open shove", "JJ": "Minraise / Call", "JTs": "Minraise / Call", "J9s": "Open shove", "J8s": "Open shove", "J7s": "Open shove", "J6s": "Open shove", "J5s": "Open shove", "J4s": "Open shove", "J3s": "Minraise / Fold", "J2s": "Minraise / Fold", "ATo": "Open shove", "KTo": "Open shove", "QTo": "Open shove", "JTo": "Open shove", "TT": "Minraise / Call", "T9s": "Open shove", "T8s": "Open shove", "T7s": "Open shove", "T6s": "Open shove", "T5s": "Open shove", "T4s": "Minraise / Fold", "A9o": "Open shove", "K9o": "Open shove", "Q9o": "Open shove", "J9o": "Open shove", "T9o": "Open shove", "99": "Minraise / Call", "98s": "Open shove", "97s": "Open shove", "96s": "Open shove", "95s": "Open shove", "A8o": "Open shove", "K8o": "Open shove", "Q8o": "Open shove", "J8o": "Minraise / Fold", "T8o": "Open shove", "88": "Minraise / Call", "87s": "Open shove", "86s": "Open shove", "85s": "Open shove", "A7o": "Open shove", "K7o": "Open shove", "Q7o": "Minraise / Fold", "77": "Open shove", "76s": "Open shove", "75s": "Open shove", "74s": "Open shove", "A6o": "Open shove", "K6o": "Open shove", "Q6o": "Minraise / Fold", "66": "Open shove", "65s": "Open shove", "64s": "Open shove", "A5o": "Open shove", "K5o": "Open shove", "55": "Open shove", "54s": "Open shove", "53s": "Open shove", "A4o": "Open shove", "K4o": "Open shove", "44": "Open shove", "A3o": "Open shove", "K3o": "Open shove", "33": "Open shove", "A2o": "Open shove", "K2o": "Open shove", "22": "Open shove"}}, {"id": "BB vs SB|25bb", "group": "BB vs SB", "stack": "25bb", "title": "BB vs SB", "subtitle": "vs open raise SB", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3bet All-in", "color": "#5A4FA0"}, {"label": "3bet NAI / Call", "color": "#2E9E5B"}, {"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "3bet NAI / Call", "AKs": "3bet NAI / Call", "AQs": "3bet NAI / Call", "AJs": "Call", "ATs": "Call", "A9s": "Call", "A8s": "Call", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "3bet All-in", "KK": "3bet NAI / Call", "KQs": "Call", "KJs": "Call", "KTs": "Call", "K9s": "Call", "K8s": "Call", "K7s": "Call", "K6s": "Call", "K5s": "Call", "K4s": "Call", "K3s": "Call", "K2s": "Call", "AQo": "3bet All-in", "KQo": "Call", "QQ": "3bet NAI / Call", "QJs": "Call", "QTs": "Call", "Q9s": "Call", "Q8s": "Call", "Q7s": "Call", "Q6s": "Call", "Q5s": "Call", "Q4s": "Call", "Q3s": "Call", "Q2s": "Call", "AJo": "3bet All-in", "KJo": "Call", "QJo": "Call", "JJ": "3bet NAI / Call", "JTs": "Call", "J9s": "Call", "J8s": "Call", "J7s": "Call", "J6s": "Call", "J5s": "Call", "J4s": "Call", "J3s": "Call", "J2s": "Call", "ATo": "3bet All-in", "KTo": "Call", "QTo": "Call", "JTo": "Call", "TT": "3bet All-in", "T9s": "Call", "T8s": "Call", "T7s": "Call", "T6s": "Call", "T5s": "Call", "T4s": "Call", "A9o": "Call", "K9o": "Call", "Q9o": "Call", "J9o": "Call", "T9o": "Call", "99": "3bet All-in", "98s": "Call", "97s": "Call", "96s": "Call", "95s": "Call", "94s": "Call", "A8o": "Call", "K8o": "Call", "Q8o": "Call", "J8o": "Call", "T8o": "Call", "98o": "Call", "88": "3bet All-in", "87s": "Call", "86s": "Call", "85s": "Call", "84s": "Call", "A7o": "Call", "K7o": "Call", "Q7o": "Call", "J7o": "Call", "T7o": "Call", "97o": "Call", "87o": "Call", "77": "3bet All-in", "76s": "Call", "75s": "Call", "74s": "Call", "A6o": "Call", "K6o": "Call", "Q6o": "Call", "86o": "Call", "76o": "Call", "66": "3bet All-in", "65s": "Call", "64s": "Call", "63s": "Call", "A5o": "Call", "65o": "Call", "55": "3bet All-in", "54s": "Call", "53s": "Call", "52s": "Call", "A4o": "Call", "54o": "Call", "44": "3bet All-in", "43s": "Call", "42s": "Call", "A3o": "Call", "33": "3bet All-in", "32s": "Call", "A2o": "Call", "22": "3bet All-in"}}, {"id": "BB vs SB|15bb", "group": "BB vs SB", "stack": "15bb", "title": "BB vs SB", "subtitle": "vs open raise SB", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3bet All-in", "color": "#5A4FA0"}, {"label": "3bet NAI / Call", "color": "#2E9E5B"}, {"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "3bet NAI / Call", "AKs": "3bet NAI / Call", "AQs": "3bet All-in", "AJs": "3bet All-in", "ATs": "3bet All-in", "A9s": "3bet All-in", "A8s": "Call", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "3bet All-in", "KK": "3bet NAI / Call", "KQs": "Call", "KJs": "Call", "KTs": "Call", "K9s": "Call", "K8s": "Call", "K7s": "Call", "K6s": "Call", "K5s": "Call", "K4s": "Call", "K3s": "Call", "K2s": "Call", "AQo": "3bet All-in", "KQo": "Call", "QQ": "3bet NAI / Call", "QJs": "Call", "QTs": "Call", "Q9s": "Call", "Q8s": "Call", "Q7s": "Call", "Q6s": "Call", "Q5s": "Call", "Q4s": "Call", "Q3s": "Call", "Q2s": "Call", "AJo": "3bet All-in", "KJo": "Call", "QJo": "Call", "JJ": "3bet All-in", "JTs": "Call", "J9s": "Call", "J8s": "Call", "J7s": "Call", "J6s": "Call", "J5s": "Call", "J4s": "Call", "J3s": "Call", "J2s": "Call", "ATo": "3bet All-in", "KTo": "Call", "QTo": "Call", "JTo": "Call", "TT": "3bet All-in", "T9s": "Call", "T8s": "Call", "T7s": "Call", "T6s": "Call", "T5s": "Call", "T4s": "Call", "A9o": "3bet All-in", "K9o": "Call", "Q9o": "Call", "J9o": "Call", "T9o": "Call", "99": "3bet All-in", "98s": "Call", "97s": "Call", "96s": "Call", "95s": "Call", "94s": "Call", "A8o": "3bet All-in", "K8o": "Call", "Q8o": "Call", "J8o": "Call", "T8o": "Call", "98o": "Call", "88": "3bet All-in", "87s": "Call", "86s": "Call", "85s": "Call", "84s": "Call", "A7o": "3bet All-in", "K7o": "Call", "Q7o": "Call", "J7o": "Call", "T7o": "Call", "97o": "Call", "87o": "Call", "77": "3bet All-in", "76s": "Call", "75s": "Call", "74s": "Call", "A6o": "3bet All-in", "K6o": "Call", "86o": "Call", "76o": "Call", "66": "3bet All-in", "65s": "Call", "64s": "Call", "63s": "Call", "A5o": "3bet All-in", "65o": "Call", "55": "3bet All-in", "54s": "Call", "53s": "Call", "52s": "Call", "A4o": "Call", "54o": "Call", "44": "3bet All-in", "43s": "Call", "42s": "Call", "A3o": "Call", "33": "3bet All-in", "32s": "Call", "A2o": "Call", "22": "3bet All-in"}}, {"id": "BB vs SB|10bb", "group": "BB vs SB", "stack": "10bb", "title": "BB vs SB", "subtitle": "vs open shove", "category": "3-max", "badge": "3-MAX", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "Call", "AKs": "Call", "AQs": "Call", "AJs": "Call", "ATs": "Call", "A9s": "Call", "A8s": "Call", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "Call", "KK": "Call", "KQs": "Call", "KJs": "Call", "KTs": "Call", "K9s": "Call", "K8s": "Call", "K7s": "Call", "K6s": "Call", "AQo": "Call", "KQo": "Call", "QQ": "Call", "QJs": "Call", "QTs": "Call", "Q9s": "Call", "Q8s": "Call", "AJo": "Call", "KJo": "Call", "QJo": "Call", "JJ": "Call", "JTs": "Call", "J9s": "Call", "ATo": "Call", "KTo": "Call", "QTo": "Call", "JTo": "Call", "TT": "Call", "T9s": "Call", "A9o": "Call", "K9o": "Call", "99": "Call", "A8o": "Call", "K8o": "Call", "88": "Call", "A7o": "Call", "77": "Call", "A6o": "Call", "66": "Call", "A5o": "Call", "55": "Call", "A4o": "Call", "44": "Call", "A3o": "Call", "33": "Call", "A2o": "Call"}}, {"id": "HU SB|15bb", "group": "HU SB", "stack": "15bb", "title": "HU SB", "subtitle": "Heads-Up Small Blind", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Limp / Fold", "color": "#B8900A"}, {"label": "Limp / Reraise", "color": "#8B2020"}, {"label": "Limp/call vs 2.5x, fold sinon", "color": "#D46A3A"}, {"label": "Minraise / Call", "color": "#2E9E5B"}, {"label": "Minraise / Fold", "color": "#D92B2B"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Minraise / Call", "AKs": "Minraise / Call", "AQs": "Minraise / Call", "AJs": "Minraise / Call", "ATs": "Minraise / Call", "A9s": "Minraise / Call", "A8s": "Minraise / Call", "A7s": "Limp / Reraise", "A6s": "Limp / Reraise", "A5s": "Limp/call vs 2.5x, fold sinon", "A4s": "Limp/call vs 2.5x, fold sinon", "A3s": "Limp/call vs 2.5x, fold sinon", "A2s": "Limp/call vs 2.5x, fold sinon", "AKo": "Minraise / Call", "KK": "Minraise / Call", "KQs": "Minraise / Call", "KJs": "Minraise / Call", "KTs": "Limp/call vs 2.5x, fold sinon", "K9s": "Limp/call vs 2.5x, fold sinon", "K8s": "Limp/call vs 2.5x, fold sinon", "K7s": "Limp/call vs 2.5x, fold sinon", "K6s": "Limp/call vs 2.5x, fold sinon", "K5s": "Limp/call vs 2.5x, fold sinon", "K4s": "Limp/call vs 2.5x, fold sinon", "K3s": "Limp/call vs 2.5x, fold sinon", "K2s": "Limp/call vs 2.5x, fold sinon", "AQo": "Minraise / Call", "KQo": "Minraise / Call", "QQ": "Minraise / Call", "QJs": "Minraise / Call", "QTs": "Limp/call vs 2.5x, fold sinon", "Q9s": "Limp/call vs 2.5x, fold sinon", "Q8s": "Limp/call vs 2.5x, fold sinon", "Q7s": "Limp/call vs 2.5x, fold sinon", "Q6s": "Limp/call vs 2.5x, fold sinon", "Q5s": "Limp/call vs 2.5x, fold sinon", "Q4s": "Limp/call vs 2.5x, fold sinon", "Q3s": "Limp/call vs 2.5x, fold sinon", "Q2s": "Limp / Fold", "AJo": "Minraise / Call", "KJo": "Minraise / Call", "QJo": "Minraise / Fold", "JJ": "Minraise / Call", "JTs": "Limp/call vs 2.5x, fold sinon", "J9s": "Limp/call vs 2.5x, fold sinon", "J8s": "Limp/call vs 2.5x, fold sinon", "J7s": "Limp/call vs 2.5x, fold sinon", "J6s": "Limp/call vs 2.5x, fold sinon", "J5s": "Limp/call vs 2.5x, fold sinon", "J4s": "Limp / Fold", "J3s": "Limp / Fold", "J2s": "Limp / Fold", "ATo": "Limp / Reraise", "KTo": "Minraise / Fold", "QTo": "Minraise / Fold", "JTo": "Minraise / Fold", "TT": "Minraise / Call", "T9s": "Limp/call vs 2.5x, fold sinon", "T8s": "Limp/call vs 2.5x, fold sinon", "T7s": "Limp/call vs 2.5x, fold sinon", "T6s": "Limp/call vs 2.5x, fold sinon", "T5s": "Limp/call vs 2.5x, fold sinon", "T4s": "Limp / Fold", "T3s": "Limp / Fold", "T2s": "Limp / Fold", "A9o": "Limp / Reraise", "K9o": "Limp/call vs 2.5x, fold sinon", "Q9o": "Limp/call vs 2.5x, fold sinon", "J9o": "Limp/call vs 2.5x, fold sinon", "T9o": "Limp/call vs 2.5x, fold sinon", "99": "Minraise / Call", "98s": "Limp/call vs 2.5x, fold sinon", "97s": "Limp/call vs 2.5x, fold sinon", "96s": "Limp/call vs 2.5x, fold sinon", "95s": "Limp/call vs 2.5x, fold sinon", "94s": "Limp / Fold", "93s": "Limp / Fold", "92s": "Limp / Fold", "A8o": "Limp / Reraise", "K8o": "Limp/call vs 2.5x, fold sinon", "Q8o": "Limp/call vs 2.5x, fold sinon", "J8o": "Limp/call vs 2.5x, fold sinon", "T8o": "Limp/call vs 2.5x, fold sinon", "98o": "Limp/call vs 2.5x, fold sinon", "88": "Minraise / Call", "87s": "Limp/call vs 2.5x, fold sinon", "86s": "Limp/call vs 2.5x, fold sinon", "85s": "Limp/call vs 2.5x, fold sinon", "84s": "Limp / Fold", "83s": "Limp / Fold", "82s": "Limp / Fold", "A7o": "Limp / Reraise", "K7o": "Limp / Fold", "Q7o": "Limp / Fold", "J7o": "Limp / Fold", "T7o": "Limp / Fold", "97o": "Limp / Fold", "87o": "Limp / Fold", "77": "Limp / Reraise", "76s": "Limp/call vs 2.5x, fold sinon", "75s": "Limp/call vs 2.5x, fold sinon", "74s": "Limp/call vs 2.5x, fold sinon", "73s": "Limp / Fold", "72s": "Limp / Fold", "A6o": "Limp / Reraise", "K6o": "Limp / Fold", "Q6o": "Limp / Fold", "J6o": "Limp / Fold", "T6o": "Limp / Fold", "96o": "Limp / Fold", "86o": "Limp / Fold", "76o": "Limp / Fold", "66": "Limp / Reraise", "65s": "Limp/call vs 2.5x, fold sinon", "64s": "Limp/call vs 2.5x, fold sinon", "63s": "Limp / Fold", "62s": "Limp / Fold", "A5o": "Limp / Reraise", "K5o": "Limp / Fold", "Q5o": "Limp / Fold", "J5o": "Limp / Fold", "T5o": "Limp / Fold", "95o": "Limp / Fold", "85o": "Limp / Fold", "75o": "Limp / Fold", "65o": "Limp / Fold", "55": "Limp / Reraise", "54s": "Limp/call vs 2.5x, fold sinon", "53s": "Limp/call vs 2.5x, fold sinon", "52s": "Limp / Fold", "A4o": "Minraise / Fold", "K4o": "Minraise / Fold", "Q4o": "Minraise / Fold", "J4o": "Limp / Fold", "T4o": "Limp / Fold", "94o": "Limp / Fold", "84o": "Limp / Fold", "74o": "Limp / Fold", "64o": "Limp / Fold", "54o": "Limp / Fold", "44": "Open shove", "43s": "Limp/call vs 2.5x, fold sinon", "42s": "Limp / Fold", "A3o": "Minraise / Fold", "K3o": "Minraise / Fold", "Q3o": "Minraise / Fold", "J3o": "Limp / Fold", "T3o": "Limp / Fold", "93o": "Limp / Fold", "83o": "Limp / Fold", "73o": "Limp / Fold", "63o": "Limp / Fold", "53o": "Limp / Fold", "43o": "Limp / Fold", "33": "Open shove", "32s": "Limp / Fold", "A2o": "Minraise / Fold", "K2o": "Minraise / Fold", "Q2o": "Minraise / Fold", "J2o": "Limp / Fold", "T2o": "Limp / Fold", "92o": "Limp / Fold", "82o": "Limp / Fold", "72o": "Limp / Fold", "62o": "Limp / Fold", "52o": "Limp / Fold", "42o": "Limp / Fold", "32o": "Limp / Fold", "22": "Open shove"}}, {"id": "HU SB|12bb", "group": "HU SB", "stack": "12bb", "title": "HU SB", "subtitle": "Heads-Up Small Blind", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Limp / Call", "color": "#0BA3A3"}, {"label": "Limp / Fold", "color": "#B8900A"}, {"label": "Limp/call vs 2.5x, fold sinon", "color": "#D46A3A"}, {"label": "Limp/reraise vs 2.5x", "color": "#8B2020"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Limp / Call", "AKs": "Limp / Call", "AQs": "Limp / Call", "AJs": "Limp / Call", "ATs": "Limp / Call", "A9s": "Limp / Call", "A8s": "Limp / Call", "A7s": "Limp / Call", "A6s": "Limp / Call", "A5s": "Limp / Call", "A4s": "Limp / Call", "A3s": "Limp / Call", "A2s": "Limp / Call", "AKo": "Limp/reraise vs 2.5x", "KK": "Limp / Call", "KQs": "Limp / Call", "KJs": "Limp / Call", "KTs": "Limp / Call", "K9s": "Limp/call vs 2.5x, fold sinon", "K8s": "Limp/call vs 2.5x, fold sinon", "K7s": "Limp/call vs 2.5x, fold sinon", "K6s": "Limp/call vs 2.5x, fold sinon", "K5s": "Limp/call vs 2.5x, fold sinon", "K4s": "Limp/call vs 2.5x, fold sinon", "K3s": "Limp/call vs 2.5x, fold sinon", "K2s": "Limp/call vs 2.5x, fold sinon", "AQo": "Limp/reraise vs 2.5x", "KQo": "Limp/reraise vs 2.5x", "QQ": "Limp / Call", "QJs": "Limp / Call", "QTs": "Limp / Call", "Q9s": "Limp/call vs 2.5x, fold sinon", "Q8s": "Limp/call vs 2.5x, fold sinon", "Q7s": "Limp/call vs 2.5x, fold sinon", "Q6s": "Limp/call vs 2.5x, fold sinon", "Q5s": "Limp/call vs 2.5x, fold sinon", "Q4s": "Limp/call vs 2.5x, fold sinon", "Q3s": "Limp/call vs 2.5x, fold sinon", "Q2s": "Limp / Fold", "AJo": "Limp/reraise vs 2.5x", "KJo": "Limp/reraise vs 2.5x", "QJo": "Open shove", "JJ": "Limp/reraise vs 2.5x", "JTs": "Limp / Call", "J9s": "Limp/call vs 2.5x, fold sinon", "J8s": "Limp/call vs 2.5x, fold sinon", "J7s": "Limp/call vs 2.5x, fold sinon", "J6s": "Limp/call vs 2.5x, fold sinon", "J5s": "Limp/call vs 2.5x, fold sinon", "J4s": "Limp/call vs 2.5x, fold sinon", "J3s": "Limp / Fold", "J2s": "Limp / Fold", "ATo": "Limp/reraise vs 2.5x", "KTo": "Limp/reraise vs 2.5x", "QTo": "Open shove", "JTo": "Open shove", "TT": "Limp/reraise vs 2.5x", "T9s": "Limp/call vs 2.5x, fold sinon", "T8s": "Limp/call vs 2.5x, fold sinon", "T7s": "Limp/call vs 2.5x, fold sinon", "T6s": "Limp/call vs 2.5x, fold sinon", "T5s": "Limp/call vs 2.5x, fold sinon", "T4s": "Limp/call vs 2.5x, fold sinon", "T3s": "Limp / Fold", "T2s": "Limp / Fold", "A9o": "Open shove", "K9o": "Open shove", "Q9o": "Limp/call vs 2.5x, fold sinon", "J9o": "Limp/call vs 2.5x, fold sinon", "T9o": "Limp/call vs 2.5x, fold sinon", "99": "Limp/reraise vs 2.5x", "98s": "Limp/call vs 2.5x, fold sinon", "97s": "Limp/call vs 2.5x, fold sinon", "96s": "Limp/call vs 2.5x, fold sinon", "95s": "Limp/call vs 2.5x, fold sinon", "94s": "Limp / Fold", "93s": "Limp / Fold", "92s": "Limp / Fold", "A8o": "Open shove", "K8o": "Open shove", "Q8o": "Limp/call vs 2.5x, fold sinon", "J8o": "Limp/call vs 2.5x, fold sinon", "T8o": "Limp/call vs 2.5x, fold sinon", "98o": "Limp/call vs 2.5x, fold sinon", "88": "Limp/reraise vs 2.5x", "87s": "Limp/call vs 2.5x, fold sinon", "86s": "Open shove", "85s": "Limp/call vs 2.5x, fold sinon", "84s": "Limp / Fold", "83s": "Limp / Fold", "82s": "Limp / Fold", "A7o": "Open shove", "K7o": "Limp/call vs 2.5x, fold sinon", "Q7o": "Limp / Fold", "J7o": "Limp / Fold", "T7o": "Limp / Fold", "97o": "Limp / Fold", "87o": "Limp / Fold", "77": "Limp/reraise vs 2.5x", "76s": "Open shove", "75s": "Limp/call vs 2.5x, fold sinon", "74s": "Limp/call vs 2.5x, fold sinon", "73s": "Limp / Fold", "72s": "Limp / Fold", "A6o": "Open shove", "K6o": "Limp/call vs 2.5x, fold sinon", "Q6o": "Limp / Fold", "J6o": "Limp / Fold", "T6o": "Limp / Fold", "96o": "Limp / Fold", "86o": "Limp / Fold", "76o": "Limp / Fold", "66": "Limp/reraise vs 2.5x", "65s": "Open shove", "64s": "Limp/call vs 2.5x, fold sinon", "63s": "Limp / Fold", "62s": "Limp / Fold", "A5o": "Open shove", "K5o": "Limp/call vs 2.5x, fold sinon", "Q5o": "Limp / Fold", "J5o": "Limp / Fold", "T5o": "Limp / Fold", "95o": "Limp / Fold", "85o": "Limp / Fold", "75o": "Limp / Fold", "65o": "Limp / Fold", "55": "Limp/reraise vs 2.5x", "54s": "Limp/call vs 2.5x, fold sinon", "53s": "Limp/call vs 2.5x, fold sinon", "52s": "Limp / Fold", "A4o": "Open shove", "K4o": "Limp / Fold", "Q4o": "Limp / Fold", "J4o": "Limp / Fold", "T4o": "Limp / Fold", "94o": "Limp / Fold", "84o": "Limp / Fold", "74o": "Limp / Fold", "64o": "Limp / Fold", "54o": "Limp / Fold", "44": "Open shove", "43s": "Limp/call vs 2.5x, fold sinon", "42s": "Limp / Fold", "A3o": "Open shove", "K3o": "Limp / Fold", "Q3o": "Limp / Fold", "J3o": "Limp / Fold", "T3o": "Limp / Fold", "93o": "Limp / Fold", "83o": "Limp / Fold", "73o": "Limp / Fold", "63o": "Limp / Fold", "53o": "Limp / Fold", "43o": "Limp / Fold", "33": "Open shove", "32s": "Limp / Fold", "A2o": "Open shove", "K2o": "Limp / Fold", "Q2o": "Limp / Fold", "J2o": "Limp / Fold", "T2o": "Limp / Fold", "92o": "Limp / Fold", "82o": "Limp / Fold", "72o": "Limp / Fold", "62o": "Limp / Fold", "52o": "Limp / Fold", "42o": "Limp / Fold", "32o": "Limp / Fold", "22": "Open shove"}}, {"id": "HU SB|8bb", "group": "HU SB", "stack": "8bb", "title": "HU SB", "subtitle": "Heads-Up Small Blind", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Limp / Call", "color": "#0BA3A3"}, {"label": "Limp / Fold", "color": "#B8900A"}, {"label": "Limp / Reraise", "color": "#8B2020"}, {"label": "Limp/call vs 2.5x, fold sinon", "color": "#D46A3A"}, {"label": "Open shove", "color": "#5A4FA0"}], "cells": {"AA": "Limp / Call", "AKs": "Limp / Reraise", "AQs": "Limp / Reraise", "AJs": "Limp / Reraise", "ATs": "Limp / Reraise", "A9s": "Open shove", "A8s": "Open shove", "A7s": "Open shove", "A6s": "Open shove", "A5s": "Open shove", "A4s": "Open shove", "A3s": "Open shove", "A2s": "Open shove", "AKo": "Open shove", "KK": "Limp / Call", "KQs": "Limp / Call", "KJs": "Limp / Call", "KTs": "Limp / Call", "K9s": "Limp / Call", "K8s": "Limp / Call", "K7s": "Open shove", "K6s": "Open shove", "K5s": "Open shove", "K4s": "Open shove", "K3s": "Open shove", "K2s": "Open shove", "AQo": "Open shove", "KQo": "Limp / Reraise", "QQ": "Limp / Call", "QJs": "Limp / Call", "QTs": "Limp / Call", "Q9s": "Limp / Call", "Q8s": "Limp/call vs 2.5x, fold sinon", "Q7s": "Open shove", "Q6s": "Open shove", "Q5s": "Open shove", "Q4s": "Open shove", "Q3s": "Limp/call vs 2.5x, fold sinon", "Q2s": "Limp / Fold", "AJo": "Open shove", "KJo": "Open shove", "QJo": "Open shove", "JJ": "Limp / Reraise", "JTs": "Limp / Call", "J9s": "Limp / Call", "J8s": "Limp/call vs 2.5x, fold sinon", "J7s": "Open shove", "J6s": "Limp/call vs 2.5x, fold sinon", "J5s": "Limp/call vs 2.5x, fold sinon", "J4s": "Limp / Fold", "J3s": "Limp / Fold", "J2s": "Limp / Fold", "ATo": "Open shove", "KTo": "Open shove", "QTo": "Open shove", "JTo": "Open shove", "TT": "Limp / Reraise", "T9s": "Limp / Call", "T8s": "Limp/call vs 2.5x, fold sinon", "T7s": "Open shove", "T6s": "Open shove", "T5s": "Limp / Fold", "T4s": "Limp / Fold", "T3s": "Limp / Fold", "T2s": "Limp / Fold", "A9o": "Open shove", "K9o": "Open shove", "Q9o": "Open shove", "J9o": "Open shove", "T9o": "Open shove", "99": "Limp / Reraise", "98s": "Limp/call vs 2.5x, fold sinon", "97s": "Open shove", "96s": "Open shove", "95s": "Limp / Fold", "94s": "Limp / Fold", "93s": "Limp / Fold", "92s": "Limp / Fold", "A8o": "Open shove", "K8o": "Open shove", "Q8o": "Open shove", "J8o": "Limp / Fold", "T8o": "Limp / Fold", "98o": "Limp / Fold", "88": "Limp / Reraise", "87s": "Open shove", "86s": "Open shove", "85s": "Open shove", "84s": "Limp / Fold", "83s": "Limp / Fold", "82s": "Limp / Fold", "A7o": "Open shove", "K7o": "Open shove", "Q7o": "Limp / Fold", "J7o": "Limp / Fold", "T7o": "Limp / Fold", "97o": "Limp / Fold", "87o": "Limp / Fold", "77": "Limp / Reraise", "76s": "Open shove", "75s": "Open shove", "74s": "Limp / Fold", "73s": "Limp / Fold", "72s": "Limp / Fold", "A6o": "Open shove", "K6o": "Open shove", "Q6o": "Limp / Fold", "J6o": "Limp / Fold", "T6o": "Limp / Fold", "96o": "Limp / Fold", "86o": "Limp / Fold", "76o": "Limp / Fold", "66": "Limp / Reraise", "65s": "Open shove", "64s": "Open shove", "63s": "Limp / Fold", "62s": "Limp / Fold", "A5o": "Open shove", "K5o": "Open shove", "Q5o": "Limp / Fold", "J5o": "Limp / Fold", "T5o": "Limp / Fold", "95o": "Limp / Fold", "85o": "Limp / Fold", "75o": "Limp / Fold", "65o": "Limp / Fold", "55": "Open shove", "54s": "Open shove", "53s": "Limp / Fold", "52s": "Limp / Fold", "A4o": "Open shove", "K4o": "Open shove", "Q4o": "Limp / Fold", "J4o": "Limp / Fold", "T4o": "Limp / Fold", "94o": "Limp / Fold", "84o": "Limp / Fold", "74o": "Limp / Fold", "64o": "Limp / Fold", "54o": "Limp / Fold", "44": "Open shove", "43s": "Limp / Fold", "42s": "Limp / Fold", "A3o": "Open shove", "K3o": "Open shove", "Q3o": "Limp / Fold", "J3o": "Limp / Fold", "T3o": "Limp / Fold", "93o": "Limp / Fold", "83o": "Limp / Fold", "73o": "Limp / Fold", "63o": "Limp / Fold", "53o": "Limp / Fold", "43o": "Limp / Fold", "33": "Open shove", "32s": "Limp / Fold", "A2o": "Open shove", "K2o": "Limp / Fold", "Q2o": "Limp / Fold", "J2o": "Limp / Fold", "T2o": "Limp / Fold", "92o": "Limp / Fold", "82o": "Limp / Fold", "72o": "Limp / Fold", "62o": "Limp / Fold", "52o": "Limp / Fold", "42o": "Limp / Fold", "32o": "Limp / Fold", "22": "Open shove"}}, {"id": "HU BB|15bb", "group": "HU BB", "stack": "15bb", "title": "HU BB", "subtitle": "vs minraise", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "3bet All-in", "color": "#5A4FA0"}, {"label": "3bet NAI / Call", "color": "#2E9E5B"}, {"label": "Call", "color": "#3A85C8"}], "cells": {"AA": "3bet NAI / Call", "AKs": "3bet NAI / Call", "AQs": "3bet All-in", "AJs": "3bet All-in", "ATs": "3bet All-in", "A9s": "3bet All-in", "A8s": "3bet All-in", "A7s": "3bet All-in", "A6s": "3bet All-in", "A5s": "3bet All-in", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "3bet All-in", "KK": "3bet NAI / Call", "KQs": "3bet NAI / Call", "KJs": "Call", "KTs": "Call", "K9s": "Call", "K8s": "Call", "K7s": "Call", "K6s": "Call", "K5s": "Call", "K4s": "Call", "K3s": "Call", "K2s": "Call", "AQo": "3bet All-in", "KQo": "Call", "QQ": "3bet NAI / Call", "QJs": "Call", "QTs": "Call", "Q9s": "Call", "Q8s": "Call", "Q7s": "Call", "Q6s": "Call", "Q5s": "Call", "Q4s": "Call", "Q3s": "Call", "Q2s": "Call", "AJo": "3bet All-in", "KJo": "Call", "QJo": "Call", "JJ": "3bet NAI / Call", "JTs": "Call", "J9s": "Call", "J8s": "Call", "J7s": "Call", "J6s": "Call", "J5s": "Call", "J4s": "Call", "J3s": "Call", "J2s": "Call", "ATo": "3bet All-in", "KTo": "Call", "QTo": "Call", "JTo": "Call", "TT": "3bet All-in", "T9s": "Call", "T8s": "Call", "T7s": "Call", "T6s": "Call", "T5s": "Call", "T4s": "Call", "T3s": "Call", "T2s": "Call", "A9o": "3bet All-in", "K9o": "Call", "Q9o": "Call", "J9o": "Call", "T9o": "Call", "99": "3bet All-in", "98s": "Call", "97s": "Call", "96s": "Call", "95s": "Call", "94s": "Call", "93s": "Call", "92s": "Call", "A8o": "3bet All-in", "K8o": "Call", "Q8o": "Call", "J8o": "Call", "T8o": "Call", "98o": "Call", "88": "3bet All-in", "87s": "Call", "86s": "Call", "85s": "Call", "84s": "Call", "83s": "Call", "82s": "Call", "A7o": "3bet All-in", "K7o": "Call", "Q7o": "Call", "J7o": "Call", "T7o": "Call", "97o": "Call", "87o": "Call", "77": "3bet All-in", "76s": "Call", "75s": "Call", "74s": "Call", "73s": "Call", "72s": "Call", "A6o": "3bet All-in", "K6o": "Call", "Q6o": "Call", "86o": "Call", "76o": "Call", "66": "3bet All-in", "65s": "Call", "64s": "Call", "63s": "Call", "62s": "Call", "A5o": "3bet All-in", "65o": "Call", "55": "3bet All-in", "54s": "Call", "53s": "Call", "52s": "Call", "A4o": "3bet All-in", "54o": "Call", "44": "3bet All-in", "43s": "Call", "42s": "Call", "A3o": "3bet All-in", "33": "3bet All-in", "32s": "Call", "A2o": "3bet All-in", "22": "3bet All-in"}}, {"id": "HU BB|12bb", "group": "HU BB", "stack": "12bb", "title": "HU BB", "subtitle": "vs limp", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Check back", "defaultColor": "#ECECEC", "actions": [{"label": "Iso / Call", "color": "#0BA3A3"}, {"label": "Iso / Fold", "color": "#C0556A"}, {"label": "Iso All-in", "color": "#3D3580"}], "cells": {"AA": "Iso / Call", "AKs": "Iso / Call", "AQs": "Iso / Call", "AJs": "Iso / Call", "ATs": "Iso / Call", "A9s": "Iso / Call", "A8s": "Iso / Call", "A7s": "Iso / Call", "AKo": "Iso / Call", "KK": "Iso / Call", "KQs": "Iso / Call", "KJs": "Iso / Call", "KTs": "Iso / Call", "K9s": "Iso / Call", "AQo": "Iso / Call", "KQo": "Iso / Call", "QQ": "Iso / Call", "QJs": "Iso / Call", "QTs": "Iso / Call", "Q9s": "Iso / Call", "AJo": "Iso All-in", "KJo": "Iso All-in", "QJo": "Iso / Fold", "JJ": "Iso / Call", "JTs": "Iso / Call", "J9s": "Iso / Call", "ATo": "Iso All-in", "KTo": "Iso / Call", "QTo": "Iso / Fold", "JTo": "Iso / Fold", "TT": "Iso / Call", "T9s": "Iso / Call", "A9o": "Iso All-in", "K9o": "Iso / Fold", "Q9o": "Iso / Fold", "J9o": "Iso / Fold", "T9o": "Iso / Fold", "99": "Iso / Call", "A8o": "Iso All-in", "K8o": "Iso / Fold", "Q8o": "Iso / Fold", "J8o": "Iso / Fold", "T8o": "Iso / Fold", "88": "Iso / Call", "A7o": "Iso All-in", "77": "Iso / Call", "A6o": "Iso All-in", "66": "Iso All-in", "65s": "Iso All-in", "A5o": "Iso All-in", "55": "Iso All-in", "54s": "Iso All-in", "A4o": "Iso All-in", "44": "Iso All-in", "A3o": "Iso All-in", "33": "Iso All-in", "A2o": "Iso All-in", "K2o": "Iso All-in", "22": "Iso All-in"}}, {"id": "HU BB|8bb", "group": "HU BB", "stack": "8bb", "title": "HU BB", "subtitle": "vs open shove", "category": "HU", "badge": "HEADS-UP", "defaultAction": "Fold", "defaultColor": "#ECECEC", "actions": [{"label": "Call", "color": "#3A85C8"}, {"label": "Profil dépendant", "color": "#C0556A"}], "cells": {"AA": "Call", "AKs": "Call", "AQs": "Call", "AJs": "Call", "ATs": "Call", "A9s": "Call", "A8s": "Call", "A7s": "Call", "A6s": "Call", "A5s": "Call", "A4s": "Call", "A3s": "Call", "A2s": "Call", "AKo": "Call", "KK": "Call", "KQs": "Call", "KJs": "Call", "KTs": "Call", "K9s": "Call", "K8s": "Call", "K7s": "Profil dépendant", "K6s": "Profil dépendant", "AQo": "Call", "KQo": "Call", "QQ": "Call", "QJs": "Call", "QTs": "Call", "Q9s": "Call", "Q8s": "Profil dépendant", "AJo": "Call", "KJo": "Call", "QJo": "Call", "JJ": "Call", "JTs": "Call", "J9s": "Call", "J8s": "Profil dépendant", "ATo": "Call", "KTo": "Call", "QTo": "Call", "JTo": "Call", "TT": "Call", "T9s": "Profil dépendant", "T8s": "Profil dépendant", "A9o": "Call", "K9o": "Call", "Q9o": "Profil dépendant", "99": "Call", "98s": "Profil dépendant", "A8o": "Call", "K8o": "Profil dépendant", "88": "Call", "A7o": "Call", "K7o": "Profil dépendant", "77": "Call", "A6o": "Call", "66": "Call", "A5o": "Call", "55": "Call", "A4o": "Call", "44": "Call", "A3o": "Call", "33": "Call", "A2o": "Call"}}]};
+const RANKS = DATA.ranks;
+const RANGES = DATA.ranges;
+const GROUPS = [...new Set(RANGES.map(r=>r.group))];
+const STACKS = [...new Set(RANGES.map(r=>r.stack))];
+// display-only short labels (le fond de données garde les libellés exacts du PDF)
+const SHORT = {
+  "Minraise / Call":"Open Call","3x / Call":"Open Call",
+  "Minraise / Fold":"Open Fold","3x / Fold":"Open Fold",
+  "Open shove":"Shove","3bet All-in":"3bet Shove",
+  "3bet Non all in / call":"3bet Call","3bet NAI / Call":"3bet Call",
+  "3bet non all in / Fold":"3bet Fold","Call":"Call",
+  "Limp / Call":"Limp Call","Limp / Fold":"Limp Fold","Limp / Reraise":"Limp Raise",
+  "Limp/call vs 3bet, fold sinon":"Limp Call (cond.)","Limp/call vs 2.5x, fold sinon":"Limp Call (cond.)",
+  "Limp/reraise vs 2.5x":"Limp Raise (cond.)",
+  "Iso / Call":"Iso Call","Iso / Fold":"Iso Fold","Iso All-in":"Iso Shove",
+  "Check back":"Check","Profil dépendant":"Selon profil","Fold":"Fold"
+};
+function disp(l){ return SHORT[l]||l; }
+
+// ---------- persistence ----------
+const HAS_STORE = (typeof window!=='undefined' && window.storage && typeof window.storage.get==='function');
+let LS_OK=false; try{ localStorage.setItem('__kt_t','1'); localStorage.removeItem('__kt_t'); LS_OK=true; }catch(e){ LS_OK=false; }
+let STATE = { srs:{}, stats:{seen:0,correct:0,streak:0}, filter:{groups:[...GROUPS], stacks:[...STACKS]} };
+async function load(){
+  try{ if(HAS_STORE){ const r=await window.storage.get('kt_state'); if(r&&r.value){ STATE=Object.assign(STATE,JSON.parse(r.value)); return; } } }catch(e){}
+  if(LS_OK){ try{ const v=localStorage.getItem('kt_state'); if(v) STATE=Object.assign(STATE,JSON.parse(v)); }catch(e){} }
+}
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{
+  const p=JSON.stringify(STATE);
+  try{ if(HAS_STORE) await window.storage.set('kt_state',p); }catch(e){}
+  if(LS_OK){ try{ localStorage.setItem('kt_state',p); }catch(e){} }
+}, 300); }
+function storageStatus(){
+  if(HAS_STORE) return 'Progression sauvegardée automatiquement.';
+  if(LS_OK) return 'Progression sauvegardée dans ce navigateur (garde le même fichier / navigateur, évite la navigation privée).';
+  return 'Sauvegarde auto indisponible ici : utilise Exporter pour ne rien perdre.';
+}
+
+// ---------- helpers ----------
+function rangeById(id){ return RANGES.find(r=>r.id===id); }
+function actionLabel(r,h){ return r.cells[h] || r.defaultAction; }
+function actionColor(r,label){ if(label===r.defaultAction) return r.defaultColor; const a=r.actions.find(a=>a.label===label); return a?a.color:'#555'; }
+function cellColor(r,h){ return actionColor(r, actionLabel(r,h)); }
+function isPlayed(r,h){ return !!r.cells[h]; }
+function srsKey(r,h){ return r.id+'#'+h; }
+function box(r,h){ const v=STATE.srs[srsKey(r,h)]; return v?v.b:0; }
+function bump(r,h,ok){ const k=srsKey(r,h); const cur=STATE.srs[k]||{b:0}; cur.b = ok? Math.min(5,cur.b+1):0; STATE.srs[k]=cur; }
+
+function enabledRanges(){
+  return RANGES.filter(r=>STATE.filter.groups.includes(r.group) && STATE.filter.stacks.includes(r.stack));
+}
+function fmtHand(h){
+  let desc;
+  if(h.length===2) desc='Paire';
+  else if(h.endsWith('s')) desc='Assortie (suited)';
+  else desc='Dépareillée (offsuit)';
+  return {label:h, desc};
+}
+
+// ---------- stats ----------
+function refreshStats(){
+  const s=STATE.stats;
+  document.getElementById('sAcc').textContent = s.seen? Math.round(100*s.correct/s.seen)+'%':'–';
+  document.getElementById('sStreak').textContent = s.streak;
+  document.getElementById('sSeen').textContent = s.seen;
+  const ens=enabledRanges();
+  let mast=0,tot=0;
+  ens.forEach(r=>{ for(let i=0;i<13;i++)for(let j=0;j<13;j++){ const h=handAt(i,j); tot++; if(box(r,h)>=5) mast++; }});
+  document.getElementById('sMast').textContent = tot? mast+' / '+tot : '0';
+}
+function handAt(i,j){
+  if(i===j) return RANKS[i]+RANKS[j];
+  const hi=Math.min(i,j), lo=Math.max(i,j);
+  return RANKS[hi]+RANKS[lo]+(i<j?'s':'o');
+}
+
+// ---------- filters UI ----------
+function buildFilters(){
+  const g=document.getElementById('grpChips'); g.innerHTML='';
+  GROUPS.forEach(gr=>{
+    const c=document.createElement('span'); c.className='chip'+(STATE.filter.groups.includes(gr)?' on':'');
+    c.textContent=gr; c.onclick=()=>{ toggle(STATE.filter.groups,gr); if(!STATE.filter.groups.length) STATE.filter.groups.push(gr); buildFilters(); save(); nextSpot(); refreshStats(); };
+    g.appendChild(c);
+  });
+  const s=document.getElementById('stkChips'); s.innerHTML='';
+  STACKS.forEach(st=>{
+    const c=document.createElement('span'); c.className='chip stk'+(STATE.filter.stacks.includes(st)?' on':'');
+    c.textContent=st; c.onclick=()=>{ toggle(STATE.filter.stacks,st); if(!STATE.filter.stacks.length) STATE.filter.stacks.push(st); buildFilters(); save(); nextSpot(); refreshStats(); };
+    s.appendChild(c);
+  });
+}
+function toggle(arr,v){ const i=arr.indexOf(v); if(i<0)arr.push(v); else arr.splice(i,1); }
+
+// ---------- drill ----------
+let current=null, answered=false;
+function pickSpot(){
+  const ens=enabledRanges(); if(!ens.length) return null;
+  // weighted pool
+  let pool=[], total=0;
+  ens.forEach(r=>{
+    for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+      const h=handAt(i,j);
+      const b=box(r,h);
+      let w=Math.pow(6-b,2)*(isPlayed(r,h)?3:1);
+      pool.push({r,h,w}); total+=w;
+    }
+  });
+  let x=Math.random()*total;
+  for(const p of pool){ x-=p.w; if(x<=0) return {range:p.r,hand:p.h}; }
+  return {range:pool[0].r,hand:pool[0].h};
+}
+function nextSpot(){
+  answered=false;
+  current=pickSpot();
+  const box=document.getElementById('answers'), fb=document.getElementById('fb'), mini=document.getElementById('mini');
+  fb.innerHTML=''; mini.textContent='';
+  if(!current){ document.getElementById('situ').innerHTML=''; document.getElementById('hand').textContent='';
+    document.getElementById('hdesc').textContent=''; box.innerHTML='<div class="empty">Sélectionne au moins une table et un stack.</div>'; return; }
+  const r=current.range, h=current.hand, f=fmtHand(h);
+  document.getElementById('situ').innerHTML =
+    `<span class="pos">${r.group}</span><span class="stk">${r.stack}</span><span>${r.subtitle}</span><span class="badge">${r.badge}</span>`;
+  document.getElementById('hand').textContent = h;
+  document.getElementById('hdesc').textContent = f.desc;
+  // answer buttons: range actions + default
+  let opts = r.actions.slice();
+  if(!opts.find(a=>a.label===r.defaultAction)) opts.push({label:r.defaultAction,color:r.defaultColor});
+  box.innerHTML='';
+  opts.forEach((a,idx)=>{
+    const b=document.createElement('button'); b.className='ans';
+    b.dataset.label=a.label;
+    b.innerHTML=`<span class="sw" style="background:${a.color}"></span><span>${disp(a.label)}</span><span class="k">${idx+1}</span>`;
+    b.onclick=()=>answer(a.label,b,opts);
+    box.appendChild(b);
+  });
+}
+function answer(label,btn,opts){
+  if(answered) return; answered=true;
+  const r=current.range,h=current.hand;
+  const correct=actionLabel(r,h);
+  const ok = label===correct;
+  bump(r,h,ok);
+  STATE.stats.seen++; if(ok){STATE.stats.correct++;STATE.stats.streak++;} else {STATE.stats.correct+=0;STATE.stats.streak=0;}
+  save(); refreshStats();
+  // color buttons
+  [...document.querySelectorAll('.ans')].forEach(b=>{
+    const lbl=b.dataset.label;
+    b.disabled=true;
+    if(lbl===correct) b.classList.add('correct');
+    else if(b===btn) b.classList.add('wrong');
+  });
+  const fb=document.getElementById('fb');
+  fb.innerHTML = ok
+    ? `<span class="ok">✓ Correct</span> — <b>${disp(correct)}</b>`
+    : `<span class="no">✗ ${disp(label)}</span> — la bonne action était <b>${disp(correct)}</b>`;
+  const nx=document.createElement('button'); nx.className='next'; nx.textContent='Suivant  (␣)'; nx.onclick=nextSpot;
+  fb.appendChild(nx);
+  document.getElementById('mini').textContent = `Niveau de cette main : ${box(r,h)}/5`;
+}
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('viewDrill').style.display==='none') return;
+  if((e.key===' '||e.key==='Enter') && answered){ e.preventDefault(); nextSpot(); return; }
+  if(!answered){ const n=parseInt(e.key); const btns=[...document.querySelectorAll('.ans')]; if(n>=1&&n<=btns.length){ btns[n-1].click(); } }
+});
+
+// ---------- grids ----------
+let gCur=RANGES[0].id;
+function buildGridPick(){
+  const p=document.getElementById('gridPick'); p.innerHTML='';
+  RANGES.forEach(r=>{
+    const c=document.createElement('span'); c.className='chip'+(r.id===gCur?' on':'');
+    c.textContent=`${r.group} · ${r.stack}`; c.onclick=()=>{gCur=r.id;buildGridPick();renderGridView();};
+    p.appendChild(c);
+  });
+}
+function gridTableHTML(r){
+  let html='<table class="rng">';
+  for(let i=0;i<13;i++){ html+='<tr>';
+    for(let j=0;j<13;j++){ const h=handAt(i,j); const col=cellColor(r,h);
+      const dim = !isPlayed(r,h) && r.defaultAction==='Fold';
+      html+=`<td style="background:${col};${dim?'opacity:.32':''}" title="${actionLabel(r,h)}">${h}</td>`;
+    }
+    html+='</tr>';
+  }
+  return html+'</table>';
+}
+function renderGridView(){
+  const r=rangeById(gCur);
+  document.getElementById('gHead').textContent=`${r.group} — ${r.stack}`;
+  document.getElementById('gSub').textContent=r.subtitle+' · '+r.badge;
+  document.getElementById('gTable').innerHTML=gridTableHTML(r);
+  let leg='<h4>Actions</h4>';
+  r.actions.forEach(a=>{ leg+=`<div class="li"><span class="sw" style="background:${a.color}"></span><span><b>${disp(a.label)}</b>${disp(a.label)!==a.label?` <span style="color:var(--muted);font-size:11px">— ${a.label}</span>`:''}</span></div>`; });
+  leg+=`<div class="li"><span class="sw" style="background:${r.defaultColor};border:1px solid var(--border)"></span><span><b>${disp(r.defaultAction)}</b>${disp(r.defaultAction)!==r.defaultAction?` <span style="color:var(--muted);font-size:11px">— ${r.defaultAction}</span>`:''}</span></div>`;
+  document.getElementById('gLegend').innerHTML=leg;
+}
+
+// ---------- export ----------
+function inlineGrid(r){
+  let h=`<div style="font-family:monospace"><b>${r.group} — ${r.stack}</b><br><span style="color:#888">${r.subtitle}</span><br><br><table style="border-collapse:separate;border-spacing:2px">`;
+  for(let i=0;i<13;i++){ h+='<tr>';
+    for(let j=0;j<13;j++){ const hd=handAt(i,j); const col=cellColor(r,hd);
+      h+=`<td style="background:${col};color:#fff;width:34px;height:26px;text-align:center;font:600 10px monospace;border-radius:3px">${hd}</td>`; }
+    h+='</tr>'; }
+  h+='</table><br>';
+  r.actions.forEach(a=>{ h+=`<span style="display:inline-block;width:12px;height:12px;background:${a.color};border-radius:2px;vertical-align:middle"></span> ${a.label}&nbsp;&nbsp;`; });
+  return h+'</div>';
+}
+function dl(name,content,type){ const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+function exportAnki(){
+  let lines=[];
+  RANGES.forEach(r=>{
+    const front=`${r.group} — ${r.stack}<br><span style="color:#888">(${r.subtitle})</span>`;
+    const back=inlineGrid(r).replace(/\t/g,' ').replace(/\r?\n/g,'');
+    lines.push(front+'\t'+back);
+  });
+  dl('ranges_expresso_anki.txt', lines.join('\n'), 'text/plain');
+}
+function exportJSON(){ dl('ranges_expresso.json', JSON.stringify(DATA,null,1), 'application/json'); }
+function exportProgress(){
+  const payload={_type:'kt_progress',_date:new Date().toISOString(),srs:STATE.srs,stats:STATE.stats};
+  dl('progression_expresso.json', JSON.stringify(payload,null,1), 'application/json');
+}
+function importProgress(file){
+  if(!file) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const o=JSON.parse(rd.result);
+    if(o.srs){ for(const k in o.srs){ const b=(o.srs[k]&&typeof o.srs[k].b==='number')?o.srs[k].b:0; const cur=STATE.srs[k]; STATE.srs[k]=(cur&&cur.b>=b)?cur:{b}; } }
+    if(o.stats){ STATE.stats.seen=Math.max(STATE.stats.seen||0,o.stats.seen||0); STATE.stats.correct=Math.max(STATE.stats.correct||0,o.stats.correct||0); if(typeof o.stats.streak==='number') STATE.stats.streak=o.stats.streak; }
+    save(); refreshStats();
+    alert('Progression importée et fusionnée.');
+  }catch(e){ alert('Fichier invalide — ce n\'est pas un export de progression.'); } };
+  rd.readAsText(file);
+}
+async function resetProgress(){
+  if(!confirm('Réinitialiser toute la progression ? Cette action est irréversible (pense à Exporter avant si besoin).')) return;
+  STATE.srs={}; STATE.stats={seen:0,correct:0,streak:0};
+  try{ if(HAS_STORE) await window.storage.delete('kt_state'); }catch(e){}
+  if(LS_OK){ try{ localStorage.removeItem('kt_state'); }catch(e){} }
+  save(); refreshStats();
+  bChecked=false; if(bRange) blindReset();
+  nextSpot();
+  alert('Progression réinitialisée.');
+}
+
+// ---------- blind grid mode ----------
+let bRange=null, bPaint={}, bSel=null, bChecked=false, bPainting=false;
+function blindInit(id){
+  const r=rangeById(id); bRange=id; bChecked=false; bPaint={};
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){ bPaint[handAt(i,j)]=r.defaultAction; }
+  bSel = r.actions.length? r.actions[0].label : r.defaultAction;
+  renderBlind();
+}
+function blindRandom(){ const ens=enabledRanges(); const pool=ens.length?ens:RANGES; blindInit(pool[Math.floor(Math.random()*pool.length)].id); }
+function buildBlindPick(){
+  const p=document.getElementById('bPick'); p.innerHTML='';
+  RANGES.forEach(r=>{
+    const c=document.createElement('span'); c.className='chip'+(r.id===bRange?' on':'');
+    c.textContent=`${r.group} · ${r.stack}`; c.onclick=()=>blindInit(r.id);
+    p.appendChild(c);
+  });
+}
+function renderBlind(){
+  const r=rangeById(bRange);
+  buildBlindPick();
+  document.getElementById('bHead').textContent=`${r.group} — ${r.stack}`;
+  document.getElementById('bSub').textContent=r.subtitle+' · '+r.badge;
+  document.getElementById('bScore').innerHTML = bChecked? '' : '';
+  document.getElementById('bInstr').textContent = bChecked
+    ? 'Correction affichée : les cases marquées ✗ sont tes erreurs (couleur = la bonne action).'
+    : `Départ : tout sur « ${disp(r.defaultAction)} ». Choisis une action, puis clique (ou glisse) sur les cases pour peindre les exceptions.`;
+  // palette
+  const pal=document.getElementById('bPalette'); pal.innerHTML='';
+  let opts=r.actions.slice();
+  if(!opts.find(a=>a.label===r.defaultAction)) opts.push({label:r.defaultAction,color:r.defaultColor});
+  opts.forEach(a=>{
+    const el=document.createElement('div'); el.className='pal'+(a.label===bSel?' on':'');
+    el.innerHTML=`<span class="sw" style="background:${a.color}"></span>${disp(a.label)}`;
+    el.onclick=()=>{ if(bChecked) return; bSel=a.label; renderBlind(); };
+    pal.appendChild(el);
+  });
+  document.getElementById('bCheckBtn').style.display = bChecked?'none':'';
+  // table
+  const wrap=document.getElementById('bTableWrap');
+  let html='<table class="rng">';
+  for(let i=0;i<13;i++){ html+='<tr>';
+    for(let j=0;j<13;j++){ const h=handAt(i,j);
+      const correct=actionLabel(r,h), mine=bPaint[h];
+      let col, cls='bcell', extra='';
+      if(bChecked){ col=cellColor(r,h); if(mine!==correct){ cls+=' miss'; extra=`title="Toi : ${disp(mine)} · Correct : ${disp(correct)}"`; } }
+      else { col=actionColor(r,mine); }
+      html+=`<td class="${cls}" data-h="${h}" style="background:${col}" ${extra}>${h}</td>`;
+    }
+    html+='</tr>';
+  }
+  wrap.innerHTML=html+'</table>';
+  if(!bChecked){
+    wrap.querySelectorAll('td.bcell').forEach(td=>{
+      td.addEventListener('pointerdown',e=>{ e.preventDefault(); bPainting=true; paintCell(td); });
+      td.addEventListener('pointerenter',()=>{ if(bPainting) paintCell(td); });
+    });
+  }
+}
+function paintCell(td){ if(bChecked) return; const h=td.dataset.h; bPaint[h]=bSel; td.style.background=actionColor(rangeById(bRange),bSel); }
+document.addEventListener('pointerup',()=>{ bPainting=false; });
+function blindReset(){ if(!bRange) return; blindInit(bRange); }
+function blindCheck(){
+  const r=rangeById(bRange); let ok=0, miss=[];
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){ const h=handAt(i,j);
+    const correct=actionLabel(r,h);
+    if(bPaint[h]===correct) ok++;
+    else { miss.push({h,mine:bPaint[h],correct}); bump(r,h,false); }
+  }
+  save(); refreshStats();
+  bChecked=true; renderBlind();
+  const pct=Math.round(100*ok/169);
+  document.getElementById('bScore').innerHTML=`<div class="n">${pct}%</div><div class="l">${ok}/169 cases</div>`;
+  const box=document.getElementById('bErrors');
+  if(!miss.length){ box.innerHTML='<b style="color:var(--good)">Parfait — grille reconstruite sans erreur.</b>'; }
+  else {
+    // show played-hand errors first, cap list
+    miss.sort((a,b)=> (isPlayed(r,b.h)-isPlayed(r,a.h)));
+    const shown=miss.slice(0,24).map(m=>`<div><b>${m.h}</b> : ${disp(m.mine)} <span style="color:var(--muted)">→</span> ${disp(m.correct)}</div>`).join('');
+    box.innerHTML=`<b>${miss.length} erreur${miss.length>1?'s':''}</b>${miss.length>24?' (24 premières)':''}<div style="margin-top:6px;line-height:1.7">${shown}</div>`;
+  }
+}
+
+// ---------- tabs ----------
+function setTab(t){
+  document.getElementById('viewDrill').style.display=t==='drill'?'':'none';
+  document.getElementById('viewGrid').style.display=t==='grid'?'':'none';
+  document.getElementById('viewBlind').style.display=t==='blind'?'':'none';
+  document.getElementById('viewExport').style.display=t==='export'?'':'none';
+  document.getElementById('tabDrill').classList.toggle('on',t==='drill');
+  document.getElementById('tabGrid').classList.toggle('on',t==='grid');
+  document.getElementById('tabBlind').classList.toggle('on',t==='blind');
+  document.getElementById('tabExport').classList.toggle('on',t==='export');
+  if(t==='grid'){ buildGridPick(); renderGridView(); }
+  if(t==='export'){ const el=document.getElementById('progStatus'); if(el) el.textContent=storageStatus(); }
+  if(t==='blind'){ if(!bRange){ const ens=enabledRanges(); blindInit((ens[0]||RANGES[0]).id); } else renderBlind(); }
+}
+
+// ---------- init ----------
+(async function(){
+  await load();
+  buildFilters(); refreshStats(); nextSpot();
+})();
+</script>
+</body>
+</html>
