@@ -40,6 +40,28 @@
   .chip.allbtn{border-style:dashed;color:var(--txt)}
   .fsum{font:600 13px/1.4 var(--mono);color:var(--txt)}
   .tableviz{max-width:320px;margin:14px auto 6px;display:block}
+  .focusbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);
+    border:1px solid var(--border);background:var(--panel2);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+  .focusbar .fdot{font:12px/1 var(--mono);color:#E0A020;letter-spacing:1px}
+  .focusbar .fname{font-weight:800;color:var(--txt)}
+  .focusbar .fprog{font:600 12px/1 var(--mono)}
+  .focusbar .prevb{margin-left:auto;color:var(--muted)}
+  .progintro{margin-bottom:14px}
+  .pgroup{margin-bottom:18px}
+  .pgtitle{font-weight:800;font-size:14px;margin:0 0 8px;color:var(--txt)}
+  .prow{display:flex;align-items:center;gap:14px;padding:9px 12px;border:1px solid var(--border);
+    background:var(--panel);border-radius:10px;margin-bottom:6px;cursor:pointer}
+  .prow:hover{border-color:#3d4552}
+  .pname{width:150px;flex:none;font:700 13px/1.3 var(--mono)}
+  .pname .psub{display:block;font:400 11px/1.3 -apple-system,sans-serif;color:var(--muted)}
+  .pbarwrap{flex:1;height:9px;background:#242832;border-radius:6px;overflow:hidden;min-width:80px}
+  .pbar{height:100%;border-radius:6px;transition:width .3s}
+  .pmeta{display:flex;align-items:center;gap:10px;flex:none}
+  .pdots{font:11px/1 var(--mono);color:#E0A020;letter-spacing:1px}
+  .pbadge{font-size:12px;font-weight:700;width:78px;text-align:right}
+  .ptag{font:600 10px/1 var(--mono);padding:3px 6px;border-radius:5px}
+  .ptag.due{background:#3a1f1f;color:#e58}
+  .ptag.refresh{background:#20402f;color:#7fd6a3}
   /* DRILL */
   .drill{display:grid;grid-template-columns:1fr;gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px}
@@ -125,7 +147,7 @@
     <div class="stat">
       <div><div class="n" id="sAcc">–</div><div class="l">Précision</div></div>
       <div><div class="n" id="sStreak">0</div><div class="l">Série</div></div>
-      <div><div class="n" id="sMast">0</div><div class="l">Maîtrisées</div></div>
+      <div><div class="n" id="sMast">0</div><div class="l">Ranges maîtr.</div></div>
       <div><div class="n" id="sSeen">0</div><div class="l">Réps</div></div>
     </div>
   </header>
@@ -134,6 +156,7 @@
     <button id="tabDrill" class="on" onclick="setTab('drill')">S'entraîner</button>
     <button id="tabGrid" onclick="setTab('grid')">Grilles</button>
     <button id="tabBlind" onclick="setTab('blind')">Grille aveugle</button>
+    <button id="tabProg" onclick="setTab('prog')">Progression</button>
     <button id="tabExport" onclick="setTab('export')">Export Anki</button>
   </nav>
 
@@ -154,6 +177,7 @@
     </div>
     <div class="drill">
       <div class="card" id="drillCard">
+        <div class="focusbar" id="focusBanner"></div>
         <div class="situ" id="situ"></div>
         <div id="tableViz" class="tableviz"></div>
         <div class="hero">
@@ -204,6 +228,12 @@
         <div class="note" id="bErrors"></div>
       </div>
     </div>
+  </section>
+
+  <!-- PROGRESSION -->
+  <section id="viewProg" style="display:none">
+    <div class="progintro note">Suivi par range. La répétition espacée travaille au niveau de la range : celles <b>maîtrisées</b> ne reviennent que rarement, celles <b>en cours</b> ou <b>à revoir</b> sont priorisées dans « S'entraîner ».</div>
+    <div id="progWrap"></div>
   </section>
 
   <!-- EXPORT -->
@@ -263,7 +293,7 @@ function disp(l){ return SHORT[l]||l; }
 // ---------- persistence ----------
 const HAS_STORE = (typeof window!=='undefined' && window.storage && typeof window.storage.get==='function');
 let LS_OK=false; try{ localStorage.setItem('__kt_t','1'); localStorage.removeItem('__kt_t'); LS_OK=true; }catch(e){ LS_OK=false; }
-let STATE = { srs:{}, stats:{seen:0,correct:0,streak:0}, filter:{groups:[...GROUPS], stacks:[...STACKS]} };
+let STATE = { srs:{}, ranges:{}, stats:{seen:0,correct:0,streak:0}, rnow:0, filter:{groups:[...GROUPS], stacks:[...STACKS]} };
 async function load(){
   try{ if(HAS_STORE){ const r=await window.storage.get('kt_state'); if(r&&r.value){ STATE=Object.assign(STATE,JSON.parse(r.value)); return; } } }catch(e){}
   if(LS_OK){ try{ const v=localStorage.getItem('kt_state'); if(v) STATE=Object.assign(STATE,JSON.parse(v)); }catch(e){} }
@@ -287,8 +317,32 @@ function actionColor(r,label){ if(label===r.defaultAction) return r.defaultColor
 function cellColor(r,h){ return actionColor(r, actionLabel(r,h)); }
 function isPlayed(r,h){ return !!r.cells[h]; }
 function srsKey(r,h){ return r.id+'#'+h; }
-function box(r,h){ const v=STATE.srs[srsKey(r,h)]; return v?v.b:0; }
-function bump(r,h,ok){ const k=srsKey(r,h); const cur=STATE.srs[k]||{b:0}; cur.b = ok? Math.min(5,cur.b+1):0; STATE.srs[k]=cur; }
+// ----- per-hand competence (0..3) : sert à cibler les mains faibles et à calculer la maîtrise d'une range
+function getItem(r,h){ const v=STATE.srs[srsKey(r,h)]; return v?{b:Math.min(3,v.b||0),n:v.n||0}:{b:0,n:0}; }
+function box(r,h){ return getItem(r,h).b; }
+function bump(r,h,ok){ const k=srsKey(r,h); const it=getItem(r,h); it.n=it.n+1; it.b= ok?Math.min(3,it.b+1):0; STATE.srs[k]={b:it.b,n:it.n}; }
+
+// ----- SRS AU NIVEAU DE LA RANGE (thématique) -----
+const RIVL=[1,3,7,15,40,120]; // échéances par niveau de range (en nb de révisions de range)
+const BATCH=10;               // nb de mains par passage sur une range
+function rget(id){ const v=(STATE.ranges||{})[id]; return v?{lvl:v.lvl||0,due:v.due||0,seen:v.seen||0}:{lvl:0,due:0,seen:0}; }
+function rset(id,o){ if(!STATE.ranges) STATE.ranges={}; STATE.ranges[id]=o; }
+function rangeMastery(r){ // 0..1 sur les mains JOUÉES (les décisions qui comptent)
+  let tot=0,acc=0;
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){ const h=handAt(i,j); if(isPlayed(r,h)){ tot++; acc+=box(r,h); } }
+  return tot? acc/(3*tot):0;
+}
+function rangeSeenAny(r){
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){ if(getItem(r,handAt(i,j)).n>0) return true; }
+  return false;
+}
+function rangeStatus(r){ // 'new' | 'learning' | 'mastered'  (+ due flag)
+  const it=rget(r.id);
+  if(it.lvl>=5) return 'mastered';
+  if(!rangeSeenAny(r)) return 'new';
+  return 'learning';
+}
+function rangeIsDue(r){ return rget(r.id).due <= (STATE.rnow||0); }
 
 function enabledRanges(){
   return RANGES.filter(r=>STATE.filter.groups.includes(r.group) && STATE.filter.stacks.includes(r.stack));
@@ -308,9 +362,9 @@ function refreshStats(){
   document.getElementById('sStreak').textContent = s.streak;
   document.getElementById('sSeen').textContent = s.seen;
   const ens=enabledRanges();
-  let mast=0,tot=0;
-  ens.forEach(r=>{ for(let i=0;i<13;i++)for(let j=0;j<13;j++){ const h=handAt(i,j); tot++; if(box(r,h)>=5) mast++; }});
-  document.getElementById('sMast').textContent = tot? mast+' / '+tot : '0';
+  let mast=0;
+  ens.forEach(r=>{ if(rget(r.id).lvl>=5) mast++; });
+  document.getElementById('sMast').textContent = ens.length? mast+' / '+ens.length : '0';
 }
 function handAt(i,j){
   if(i===j) return RANKS[i]+RANKS[j];
@@ -323,13 +377,13 @@ function buildFilters(){
   const g=document.getElementById('grpChips'); g.innerHTML='';
   GROUPS.forEach(gr=>{
     const c=document.createElement('span'); c.className='chip'+(STATE.filter.groups.includes(gr)?' on':'');
-    c.textContent=gr; c.onclick=()=>{ toggle(STATE.filter.groups,gr); if(!STATE.filter.groups.length) STATE.filter.groups.push(gr); buildFilters(); save(); nextSpot(); refreshStats(); };
+    c.textContent=gr; c.onclick=()=>{ toggle(STATE.filter.groups,gr); if(!STATE.filter.groups.length) STATE.filter.groups.push(gr); focus=null; buildFilters(); save(); nextSpot(); refreshStats(); };
     g.appendChild(c);
   });
   const s=document.getElementById('stkChips'); s.innerHTML='';
   STACKS.forEach(st=>{
     const c=document.createElement('span'); c.className='chip stk'+(STATE.filter.stacks.includes(st)?' on':'');
-    c.textContent=st; c.onclick=()=>{ toggle(STATE.filter.stacks,st); if(!STATE.filter.stacks.length) STATE.filter.stacks.push(st); buildFilters(); save(); nextSpot(); refreshStats(); };
+    c.textContent=st; c.onclick=()=>{ toggle(STATE.filter.stacks,st); if(!STATE.filter.stacks.length) STATE.filter.stacks.push(st); focus=null; buildFilters(); save(); nextSpot(); refreshStats(); };
     s.appendChild(c);
   });
   renderFilterSummary();
@@ -343,27 +397,61 @@ function renderFilterSummary(){
 }
 function allFilter(which){
   STATE.filter[which] = which==='groups' ? [...GROUPS] : [...STACKS];
-  buildFilters(); save(); nextSpot(); refreshStats();
+  focus=null; buildFilters(); save(); nextSpot(); refreshStats();
 }
 function toggle(arr,v){ const i=arr.indexOf(v); if(i<0)arr.push(v); else arr.splice(i,1); }
 
-// ---------- drill ----------
-let current=null, answered=false;
-function pickSpot(){
+// ---------- drill (focus par range, en série) ----------
+let current=null, answered=false, focus=null, lastBatch=null;
+function pickFocusRange(){
   const ens=enabledRanges(); if(!ens.length) return null;
-  // weighted pool
-  let pool=[], total=0;
-  ens.forEach(r=>{
-    for(let i=0;i<13;i++)for(let j=0;j<13;j++){
-      const h=handAt(i,j);
-      const b=box(r,h);
-      let w=Math.pow(6-b,2)*(isPlayed(r,h)?3:1);
-      pool.push({r,h,w}); total+=w;
-    }
-  });
-  let x=Math.random()*total;
-  for(const p of pool){ x-=p.w; if(x<=0) return {range:p.r,hand:p.h}; }
-  return {range:pool[0].r,hand:pool[0].h};
+  let rnow=STATE.rnow||0;
+  let due=ens.filter(r=>rget(r.id).due<=rnow);
+  if(!due.length){ const mind=Math.min.apply(null,ens.map(r=>rget(r.id).due)); STATE.rnow=mind; rnow=mind; due=ens.filter(r=>rget(r.id).due<=rnow); }
+  // priorité : niveau le plus bas, puis le plus en retard, puis le moins vu
+  due.sort((a,b)=>{ const A=rget(a.id),B=rget(b.id); return (A.due-B.due) || (A.lvl-B.lvl) || (A.seen-B.seen); });
+  return due[0];
+}
+function buildBatch(r){
+  let cands=[];
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){ const h=handAt(i,j); const it=getItem(r,h);
+    const w=(isPlayed(r,h)?3:1)*(4-it.b)*(it.n===0?1.4:1); cands.push({h,w}); }
+  let picks=[];
+  const n=Math.min(BATCH,cands.length);
+  for(let k=0;k<n;k++){ let tot=0; cands.forEach(c=>tot+=c.w); let x=Math.random()*tot, idx=0;
+    for(let m=0;m<cands.length;m++){ x-=cands[m].w; if(x<=0){idx=m;break;} }
+    picks.push(cands[idx].h); cands.splice(idx,1); }
+  return picks;
+}
+function startFocus(){
+  const r=pickFocusRange();
+  if(!r){ focus=null; return; }
+  focus={ id:r.id, range:r, queue:buildBatch(r), idx:0, correct:0 };
+}
+function finalizeFocus(){
+  if(!focus) return;
+  const r=focus.range, it=rget(r.id), rnow=STATE.rnow||0;
+  const acc = focus.queue.length? focus.correct/focus.queue.length : 0;
+  if(acc>=0.85) it.lvl=Math.min(5,it.lvl+1);
+  else if(acc<0.6) it.lvl=Math.max(0,it.lvl-1);
+  it.seen=(it.seen||0)+1;
+  it.due=rnow+RIVL[it.lvl];
+  rset(r.id,it);
+  STATE.rnow=rnow+1;
+  lastBatch={ name:`${r.group} ${r.stack}`, acc, lvl:it.lvl };
+}
+function pickSpot(){
+  if(!focus || focus.idx>=focus.queue.length){ finalizeFocus(); startFocus(); if(!focus) return null; }
+  return { range:focus.range, hand:focus.queue[focus.idx] };
+}
+function levelDots(lvl){ let d=''; for(let i=0;i<5;i++) d+= i<lvl?'●':'○'; return d; }
+function renderFocusBanner(){
+  const el=document.getElementById('focusBanner'); if(!el||!focus) return;
+  const r=focus.range, it=rget(r.id);
+  let prev = lastBatch ? `<span class="prevb">← ${lastBatch.name} : ${Math.round(lastBatch.acc*100)}%</span>` : '';
+  el.innerHTML = `<span class="fdot">${levelDots(it.lvl)}</span>`
+    + `<span class="fname">Focus : ${r.group} ${r.stack}</span>`
+    + `<span class="fprog">main ${focus.idx+1}/${focus.queue.length}</span>${prev}`;
 }
 function scenario(r){
   const g=r.group, s=r.stack;
@@ -424,8 +512,10 @@ function nextSpot(){
   if(!current){ document.getElementById('situ').innerHTML=''; document.getElementById('hand').textContent='';
     document.getElementById('tableViz').innerHTML='';
     document.getElementById('cards').innerHTML='';
+    const fbn=document.getElementById('focusBanner'); if(fbn) fbn.innerHTML='';
     document.getElementById('hdesc').textContent=''; box.innerHTML='<div class="empty">Aucune range ne combine ces tables et ces stacks — élargis la sélection (bouton « Tout »).</div>'; return; }
   const r=current.range, h=current.hand, f=fmtHand(h);
+  renderFocusBanner();
   document.getElementById('situ').innerHTML =
     `<span class="pos">${r.group}</span><span class="stk">${r.stack}</span><span>${r.subtitle}</span><span class="badge">${r.badge}</span>`;
   document.getElementById('tableViz').innerHTML = drawTable(r);
@@ -450,7 +540,8 @@ function answer(label,btn,opts){
   const correct=actionLabel(r,h);
   const ok = label===correct;
   bump(r,h,ok);
-  STATE.stats.seen++; if(ok){STATE.stats.correct++;STATE.stats.streak++;} else {STATE.stats.correct+=0;STATE.stats.streak=0;}
+  if(focus){ if(ok) focus.correct++; focus.idx++; }
+  STATE.stats.seen++; if(ok){STATE.stats.correct++;STATE.stats.streak++;} else {STATE.stats.streak=0;}
   save(); refreshStats();
   // color buttons
   [...document.querySelectorAll('.ans')].forEach(b=>{
@@ -465,7 +556,7 @@ function answer(label,btn,opts){
     : `<span class="no">✗ ${disp(label)}</span> — la bonne action était <b>${disp(correct)}</b>`;
   const nx=document.createElement('button'); nx.className='next'; nx.textContent='Suivant  (␣)'; nx.onclick=nextSpot;
   fb.appendChild(nx);
-  document.getElementById('mini').textContent = `Niveau de cette main : ${box(r,h)}/5`;
+  document.getElementById('mini').textContent = `Cette main : ${box(r,h)}/3 acquise`;
 }
 document.addEventListener('keydown',e=>{
   if(document.getElementById('viewDrill').style.display==='none') return;
@@ -637,17 +728,51 @@ function blindCheck(){
   }
 }
 
+// ---------- progression par range ----------
+function renderProg(){
+  const wrap=document.getElementById('progWrap'); if(!wrap) return;
+  const byGroup={};
+  RANGES.forEach(r=>{ (byGroup[r.group]=byGroup[r.group]||[]).push(r); });
+  const STAT={ mastered:{t:'Maîtrisée',c:'#2E9E5B'}, learning:{t:'En cours',c:'#E0A020'}, 'new':{t:'Nouvelle',c:'#6b727d'} };
+  let html='';
+  Object.keys(byGroup).forEach(g=>{
+    html+=`<div class="pgroup"><div class="pgtitle">${g}</div>`;
+    byGroup[g].forEach(r=>{
+      const it=rget(r.id), st=rangeStatus(r), due=rangeIsDue(r), m=Math.round(it.lvl/5*100);
+      const s=STAT[st];
+      const dueTag = (st!=='new' && due && st!=='mastered') ? '<span class="ptag due">à revoir</span>'
+                   : (st==='mastered' && due) ? '<span class="ptag refresh">rafraîchir</span>' : '';
+      html+=`<div class="prow" onclick="focusRange('${r.id}')">
+        <div class="pname">${r.stack}<span class="psub">${r.subtitle}</span></div>
+        <div class="pbarwrap"><div class="pbar" style="width:${m}%;background:${s.c}"></div></div>
+        <div class="pmeta"><span class="pdots">${levelDots(it.lvl)}</span><span class="pbadge" style="color:${s.c}">${s.t}</span>${dueTag}</div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+function focusRange(id){
+  // lance une session ciblée sur cette range
+  const r=rangeById(id);
+  STATE.filter.groups=[r.group]; STATE.filter.stacks=[r.stack];
+  focus=null; buildFilters(); save();
+  setTab('drill'); nextSpot(); refreshStats();
+}
 // ---------- tabs ----------
 function setTab(t){
   document.getElementById('viewDrill').style.display=t==='drill'?'':'none';
   document.getElementById('viewGrid').style.display=t==='grid'?'':'none';
   document.getElementById('viewBlind').style.display=t==='blind'?'':'none';
+  document.getElementById('viewProg').style.display=t==='prog'?'':'none';
   document.getElementById('viewExport').style.display=t==='export'?'':'none';
   document.getElementById('tabDrill').classList.toggle('on',t==='drill');
   document.getElementById('tabGrid').classList.toggle('on',t==='grid');
   document.getElementById('tabBlind').classList.toggle('on',t==='blind');
+  document.getElementById('tabProg').classList.toggle('on',t==='prog');
   document.getElementById('tabExport').classList.toggle('on',t==='export');
   if(t==='grid'){ buildGridPick(); renderGridView(); }
+  if(t==='prog'){ renderProg(); }
   if(t==='export'){ const el=document.getElementById('progStatus'); if(el) el.textContent=storageStatus(); }
   if(t==='blind'){ if(!bRange){ const ens=enabledRanges(); blindInit((ens[0]||RANGES[0]).id); } else renderBlind(); }
 }
