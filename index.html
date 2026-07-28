@@ -62,6 +62,10 @@
   .ptag{font:600 10px/1 var(--mono);padding:3px 6px;border-radius:5px}
   .ptag.due{background:#3a1f1f;color:#e58}
   .ptag.refresh{background:#20402f;color:#7fd6a3}
+  .syncform{display:flex;flex-direction:column;gap:8px;max-width:520px}
+  .syncform input{background:var(--panel2);border:1px solid var(--border);color:var(--txt);
+    border-radius:9px;padding:10px 12px;font-size:13px;font-family:var(--mono)}
+  .syncform input:focus{outline:none;border-color:var(--accent)}
   /* DRILL */
   .drill{display:grid;grid-template-columns:1fr;gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px}
@@ -264,6 +268,21 @@
         <button class="btn" onclick="resetProgress()" style="border-color:#7a2b2b;color:#e58">Réinitialiser</button>
       </div>
     </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-top:0">Synchro multi-appareils (PC ↔ téléphone)</h3>
+      <p class="note">Renseigne l'URL de ton Cloudflare Worker et un <b>code de sync</b> perso (le même sur chaque appareil). Ensuite c'est automatique : récupération au démarrage, envoi après chaque session. Choisis un code pas évident (n'importe qui avec l'URL + le code peut lire/écrire ta progression).</p>
+      <div class="syncform">
+        <input id="syncUrl" type="text" placeholder="https://kt-sync.ton-sous-domaine.workers.dev" autocomplete="off" spellcheck="false">
+        <input id="syncCode" type="text" placeholder="code de sync (ex. mathis-expresso-42)" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" onclick="saveSyncCfg()">Enregistrer &amp; activer</button>
+        <button class="btn" onclick="syncPush()">Envoyer maintenant</button>
+        <button class="btn" onclick="syncPull(true)">Récupérer maintenant</button>
+      </div>
+      <p class="note" id="syncStatus" style="margin-top:10px;min-height:16px"></p>
+    </div>
   </section>
 
   <div class="foot">Ranges d'après le guide <b>Kill Tilt — Ranges Expresso</b> · <a href="https://kill-tilt.fr" target="_blank" rel="noopener">kill-tilt.fr</a> · Trainer généré pour usage personnel</div>
@@ -298,16 +317,58 @@ async function load(){
   try{ if(HAS_STORE){ const r=await window.storage.get('kt_state'); if(r&&r.value){ STATE=Object.assign(STATE,JSON.parse(r.value)); return; } } }catch(e){}
   if(LS_OK){ try{ const v=localStorage.getItem('kt_state'); if(v) STATE=Object.assign(STATE,JSON.parse(v)); }catch(e){} }
 }
-let saveT=null;
-function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{
-  const p=JSON.stringify(STATE);
-  try{ if(HAS_STORE) await window.storage.set('kt_state',p); }catch(e){}
+function persistLocal(){ const p=JSON.stringify(STATE);
+  try{ if(HAS_STORE) window.storage.set('kt_state',p); }catch(e){}
   if(LS_OK){ try{ localStorage.setItem('kt_state',p); }catch(e){} }
-}, 300); }
+}
+let saveT=null;
+function save(){ STATE.ts=Date.now(); clearTimeout(saveT); saveT=setTimeout(()=>{ persistLocal(); scheduleSyncPush(); },300); }
+function saveLocalOnly(){ persistLocal(); }
 function storageStatus(){
   if(HAS_STORE) return 'Progression sauvegardée automatiquement.';
   if(LS_OK) return 'Progression sauvegardée dans ce navigateur (garde le même fichier / navigateur, évite la navigation privée).';
   return 'Sauvegarde auto indisponible ici : utilise Exporter pour ne rien perdre.';
+}
+
+// ---------- synchro multi-appareils (Cloudflare Worker) ----------
+let booted=false, pushT=null;
+function syncCfg(){ try{ const v=JSON.parse(localStorage.getItem('kt_sync')||'null'); return (v&&v.url&&v.code)?v:null; }catch(e){ return null; } }
+function syncBase(c){ return c.url.replace(/\/+$/,''); }
+function syncStatus(m){ const el=document.getElementById('syncStatus'); if(el) el.textContent=m; }
+function saveSyncCfg(){
+  const url=(document.getElementById('syncUrl').value||'').trim();
+  const code=(document.getElementById('syncCode').value||'').trim();
+  if(!url||!code){ syncStatus('URL du Worker et code requis.'); return; }
+  try{ localStorage.setItem('kt_sync',JSON.stringify({url,code})); }catch(e){ syncStatus('Impossible d\'enregistrer la config ici.'); return; }
+  syncStatus('Config enregistrée — synchro auto activée.');
+  syncPull(true);
+}
+function scheduleSyncPush(){ if(!syncCfg()) return; clearTimeout(pushT); pushT=setTimeout(syncPush,1500); }
+async function syncPush(){
+  const c=syncCfg(); if(!c) return;
+  syncStatus('Envoi…');
+  try{
+    const res=await fetch(syncBase(c)+'/'+encodeURIComponent(c.code), {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(STATE)});
+    syncStatus(res.ok?('Envoyé ✓ '+new Date().toLocaleTimeString()):'Échec de l\'envoi ('+res.status+')');
+  }catch(e){ syncStatus('Échec de l\'envoi (réseau).'); }
+}
+async function syncPull(force){
+  const c=syncCfg(); if(!c){ syncStatus('Configure d\'abord l\'URL et le code.'); return; }
+  syncStatus('Récupération…');
+  try{
+    const res=await fetch(syncBase(c)+'/'+encodeURIComponent(c.code), {method:'GET'});
+    if(res.status===404){ syncStatus('Rien encore côté cloud — fais un premier Envoi.'); return; }
+    if(!res.ok){ syncStatus('Échec de récupération ('+res.status+').'); return; }
+    const remote=await res.json();
+    if(remote&&remote.srs){
+      if(force || (remote.ts||0)>(STATE.ts||0)){
+        const filt=STATE.filter; STATE=remote; if(!STATE.filter) STATE.filter=filt;
+        saveLocalOnly();
+        if(booted){ focus=null; buildFilters(); refreshStats(); nextSpot(); const pv=document.getElementById('viewProg'); if(pv&&pv.style.display!=='none') renderProg(); }
+        syncStatus('Récupéré ✓ ('+new Date(remote.ts||Date.now()).toLocaleString()+')');
+      } else { syncStatus('Local déjà à jour.'); }
+    } else { syncStatus('Données cloud invalides.'); }
+  }catch(e){ syncStatus('Échec de récupération (réseau).'); }
 }
 
 // ---------- helpers ----------
@@ -773,13 +834,17 @@ function setTab(t){
   document.getElementById('tabExport').classList.toggle('on',t==='export');
   if(t==='grid'){ buildGridPick(); renderGridView(); }
   if(t==='prog'){ renderProg(); }
-  if(t==='export'){ const el=document.getElementById('progStatus'); if(el) el.textContent=storageStatus(); }
+  if(t==='export'){ const el=document.getElementById('progStatus'); if(el) el.textContent=storageStatus();
+    const c=syncCfg(); if(c){ document.getElementById('syncUrl').value=c.url; document.getElementById('syncCode').value=c.code; syncStatus('Synchro active.'); }
+    else syncStatus('Non configurée.'); }
   if(t==='blind'){ if(!bRange){ const ens=enabledRanges(); blindInit((ens[0]||RANGES[0]).id); } else renderBlind(); }
 }
 
 // ---------- init ----------
 (async function(){
   await load();
+  if(syncCfg()){ await syncPull(true); }   // adopte la dernière version cloud au démarrage
+  booted=true;
   buildFilters(); refreshStats(); nextSpot();
 })();
 </script>
